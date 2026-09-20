@@ -20,6 +20,14 @@ export { sha256Hex, hasWebCrypto } from './hash';
 export { randomId } from './id';
 export { buildPack } from './packExport';
 export type { PackBuildResult } from './packExport';
+export {
+  logDiagnostic,
+  listDiagnostics,
+  clearDiagnostics,
+  isDiagnosticsAvailable,
+  formatDiagnostics,
+} from './diagnostics';
+export type { DiagnosticEntry, DiagnosticKind } from './diagnostics';
 export { importAudioFiles, detectAudioFormat } from './audioImport';
 export type {
   ImportSummary,

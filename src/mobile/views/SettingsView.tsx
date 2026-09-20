@@ -3,8 +3,17 @@
  * 计划要求：页面必须真实说明素材存在「此设备浏览器内」。
  */
 import { useEffect, useState } from 'react';
-import { detectCapabilities, diagnoseRecording, isSecureContextAvailable, store } from '../adapters';
-import type { PlatformCapabilities, RecordingDiagnosis } from '../adapters';
+import {
+  clearDiagnostics,
+  detectCapabilities,
+  diagnoseRecording,
+  formatDiagnostics,
+  isDiagnosticsAvailable,
+  isSecureContextAvailable,
+  listDiagnostics,
+  store,
+} from '../adapters';
+import type { DiagnosticEntry, PlatformCapabilities, RecordingDiagnosis } from '../adapters';
 
 const THEME_KEY = 'sound_to_essay_theme';
 
@@ -39,6 +48,11 @@ export function SettingsView() {
   const [theme, setTheme] = useState<'light' | 'dark'>(
     (document.documentElement.dataset.theme as 'light' | 'dark') || 'light',
   );
+  // D2：诊断记录，供用户在自己排查或反馈问题时提供
+  const [diagEntries, setDiagEntries] = useState<DiagnosticEntry[]>([]);
+  const [diagAvailable] = useState(() => isDiagnosticsAvailable());
+  const [showDiag, setShowDiag] = useState(false);
+  const [diagNotice, setDiagNotice] = useState('');
 
   useEffect(() => {
     setCaps(detectCapabilities());
@@ -46,7 +60,26 @@ export function SettingsView() {
       .usage()
       .then(setUsage)
       .catch(() => setUsage(null));
+    setDiagEntries(listDiagnostics());
   }, []);
+
+  /** 复制诊断信息，便于用户在反馈问题时提供。 */
+  const copyDiagnostics = async () => {
+    const text = formatDiagnostics(diagEntries);
+    try {
+      await navigator.clipboard.writeText(text);
+      setDiagNotice('已复制到剪贴板。');
+    } catch {
+      setDiagNotice('浏览器拒绝了剪贴板访问，可长按下方文字手动选择复制。');
+    }
+  };
+
+  const handleClearDiagnostics = () => {
+    if (!window.confirm('清空诊断记录吗？这不会影响你的素材。')) return;
+    clearDiagnostics();
+    setDiagEntries([]);
+    setDiagNotice('已清空诊断记录。');
+  };
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -157,6 +190,58 @@ export function SettingsView() {
         <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">
           导出成功后手机上的原始素材<b className="text-[var(--text-primary)]">不会被自动删除</b>，可以放心多次导出。
         </p>
+      </section>
+
+      {/* 诊断信息（D2）：只记元数据，不含口述内容 */}
+      <section className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">诊断信息</h3>
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              {diagAvailable
+                ? `已记录 ${diagEntries.length} 条（录音中断、保存与导入导出结果等）`
+                : '此浏览器不支持记录诊断信息（可能是无痕模式）'}
+            </p>
+          </div>
+          {diagAvailable && diagEntries.length > 0 && (
+            <button
+              onClick={() => setShowDiag((value) => !value)}
+              className="touch-target shrink-0 rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-tertiary)]"
+            >
+              {showDiag ? '收起' : '查看'}
+            </button>
+          )}
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+          只记录数量、时长与错误类别，<b className="text-[var(--text-primary)]">不包含你口述的内容</b>。
+          遇到问题时可以把这里的内容提供给开发者。
+        </p>
+
+        {showDiag && diagEntries.length > 0 && (
+          <>
+            <pre className="wrap-anywhere mt-3 max-h-56 overflow-auto rounded-xl bg-[var(--bg-tertiary)] p-3 text-[10px] leading-relaxed text-[var(--text-primary)]">
+              {formatDiagnostics(diagEntries.slice(-30))}
+            </pre>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => void copyDiagnostics()}
+                className="touch-target flex-1 rounded-xl border border-[var(--border)] px-3 py-2.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-tertiary)]"
+              >
+                复制
+              </button>
+              <button
+                onClick={handleClearDiagnostics}
+                className="touch-target flex-1 rounded-xl border border-[var(--border)] px-3 py-2.5 text-xs font-medium text-[var(--error)] transition hover:bg-[var(--bg-tertiary)]"
+              >
+                清空
+              </button>
+            </div>
+          </>
+        )}
+
+        {diagNotice && (
+          <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">{diagNotice}</p>
+        )}
       </section>
 
       <p className="mt-6 text-center text-[10px] leading-relaxed text-[var(--text-secondary)]">

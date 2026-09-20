@@ -9,7 +9,7 @@
  * 回到本页会提示恢复，把分片合并成一条可播放的素材。
  */
 import { useEffect, useRef, useState } from 'react';
-import { diagnoseRecording, randomId, recorder, sha256Hex, store } from '../adapters';
+import { diagnoseRecording, logDiagnostic, randomId, recorder, sha256Hex, store } from '../adapters';
 import type {
   LocalAudioAsset,
   LocalMemory,
@@ -104,6 +104,11 @@ export function RecordView({ onSaved }: { onSaved: () => void }) {
       if (recorder.state() === 'error') {
         stopTimer(); setState('error');
         setError('录音被系统或设备中断。请恢复已落盘分片后再录音。');
+        // D2：记录中断原因与已保存范围。只记计数，**不含口述内容**。
+        logDiagnostic(
+          'recording-interrupted',
+          `已录 ${Math.round(elapsedRef.current)}s；已落盘分片 ${chunkCountRef.current} 个 / ${chunkBytesRef.current} 字节`,
+        );
         void writesRef.current.then(() => store.getPendingRecording()).then(setPending);
       }
     }, 500);
@@ -307,6 +312,18 @@ export function RecordView({ onSaved }: { onSaved: () => void }) {
           '可在「我的素材」补充标题、人物与地点。' +
           degraded,
       );
+      // D2：记录保存结果与降级情况（不含正文）
+      logDiagnostic(
+        'recording-saved',
+        `${Math.round(durationSecs)}s / ${blob.size} 字节 / ${format?.extension ?? '?'}` +
+          (chunkWriteFailuresRef.current > 0 ? `；${chunkWriteFailuresRef.current} 个分片未落盘` : ''),
+      );
+      if (chunkWriteFailuresRef.current > 0) {
+        logDiagnostic(
+          'chunk-write-failed',
+          `${chunkWriteFailuresRef.current} 个分片写入 IndexedDB 失败`,
+        );
+      }
       onSaved();
     } catch (caught) {
       await writesRef.current;
@@ -316,6 +333,10 @@ export function RecordView({ onSaved }: { onSaved: () => void }) {
       // 附上本次录制的实际情况，便于判断是「没收到数据」还是「写入失败」
       setError(
         `${message}\n本次录制：${chunkCountRef.current} 个分块，共收到 ${chunkBytesRef.current} 字节。`,
+      );
+      logDiagnostic(
+        'recording-failed',
+        `${caught instanceof Error ? caught.name : 'Error'}；分片 ${chunkCountRef.current} 个 / ${chunkBytesRef.current} 字节`,
       );
     } finally { busyRef.current = false; }
   };
@@ -366,9 +387,17 @@ export function RecordView({ onSaved }: { onSaved: () => void }) {
         `已恢复并保存（${chunks.length} 个分片，${formatBytes(blob.size)}）。` +
           '时长是按分片数估算的，建议到「我的素材」播放确认音质是否完整。',
       );
+      logDiagnostic(
+        'recovery',
+        `合并 ${chunks.length} 个分片 / ${blob.size} 字节；开始于 ${pending.startedAt}`,
+      );
       onSaved();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
+      logDiagnostic(
+        'recovery',
+        `恢复失败：${caught instanceof Error ? caught.name : 'Error'}；原分片已保留`,
+      );
     } finally {
       setRecovering(false);
     }

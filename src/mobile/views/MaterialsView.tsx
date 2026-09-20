@@ -3,7 +3,7 @@
  * 导出语义严格对应用户能看到的事实，不宣称「电脑已接收」。
  */
 import { useEffect, useRef, useState } from 'react';
-import { buildPack, exporter, importAudioFiles, store } from '../adapters';
+import { buildPack, exporter, importAudioFiles, logDiagnostic, store } from '../adapters';
 import type { ExportResult, ImportSummary, LocalMemory } from '../adapters';
 import { MemoryEditor } from '../components/MemoryEditor';
 
@@ -198,6 +198,11 @@ export function MaterialsView({ version, onChanged }: { version: number; onChang
       }
 
       const described = describeExportResult(result);
+      logDiagnostic(
+        'export',
+        `${result.status}；${pack.recordCount} 条 / ${pack.audioCount} 音频 / ${pack.blob.size} 字节` +
+          (pack.missingAudio > 0 ? `；缺失音频 ${pack.missingAudio}` : ''),
+      );
       const extra =
         pack.missingAudio > 0
           ? `（注意：有 ${pack.missingAudio} 条记录的音频在本机读不到，未包含在包内）`
@@ -232,6 +237,11 @@ export function MaterialsView({ version, onChanged }: { version: number; onChang
       });
       setLocalVersion((value) => value + 1);
       setImportNotice(describeImport(summary));
+      // 只记计数与识别到的格式，不含文件内容
+      logDiagnostic(
+        'import',
+        `成功 ${summary.imported} / 失败 ${summary.failed.length}；${summary.bytes} 字节；不可播放 ${summary.unplayable}`,
+      );
     } catch (caught) {
       setImportNotice({
         text: `导入失败：${caught instanceof Error ? caught.message : String(caught)}`,
