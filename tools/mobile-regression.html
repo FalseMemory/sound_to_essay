@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><title>声文合成录音回归</title>
+<button id="run">运行合成录音测试（不访问麦克风）</button><pre id="result">等待开始</pre>
+<script type="module">
+import { createIndexedDbStore } from '/src/mobile/adapters/storage.ts';
+import { createMediaRecorderAdapter } from '/src/mobile/adapters/recorder.ts';
+const result = document.querySelector('#result');
+const assert = (value, text) => { if (!value) throw new Error(text); result.textContent += '\nPASS '+text; };
+document.querySelector('#run').onclick = async () => {
+  document.querySelector('#run').disabled = true;
+  const context = new AudioContext();
+  const oscillator = context.createOscillator();
+  const destination = context.createMediaStreamDestination();
+  oscillator.connect(destination); oscillator.start(); await context.resume();
+  const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  navigator.mediaDevices.getUserMedia = async () => destination.stream;
+  const recorder = createMediaRecorderAdapter();
+  const store = createIndexedDbStore();
+  const id = crypto.randomUUID();
+  try {
+    result.textContent = '仅生成合成正弦波，不录制真实声音';
+    await store.init();
+    const pending = { recordingId: id, startedAt: new Date().toISOString(), mimeType: 'audio/webm', extension:'webm', chunkCount:0, bytes:0 };
+    await store.savePendingRecording(pending);
+    let blocked = false;
+    try { await store.savePendingRecording({...pending,recordingId:crypto.randomUUID()}); } catch { blocked = true; }
+    assert(blocked, '并发录音不能覆盖恢复记录');
+    let writes = Promise.resolve(); let sequence = 0;
+    await recorder.start(blob => { const n = ++sequence; writes = writes.then(() => store.appendChunk(id,n,blob)); });
+    await new Promise(resolve => setTimeout(resolve,1200));
+    recorder.pause(); assert(recorder.state() === 'paused','暂停状态');
+    recorder.resume();
+    await new Promise(resolve => setTimeout(resolve,1200));
+    const blob = await recorder.stop(); await writes;
+    assert(blob.size > 0 && sequence > 0,'实际 MediaRecorder 生成合成音频分片');
+    const chunks = await store.listChunks(id);
+    assert(chunks.length === sequence, '分片全部落盘');
+    const audio = new Audio(URL.createObjectURL(blob));
+    await new Promise((resolve,reject) => { const t=setTimeout(()=>reject(Error('解码超时')),5000); audio.onloadeddata=()=>{clearTimeout(t);resolve();};audio.onerror=()=>{clearTimeout(t);reject(Error('解码失败'));};audio.load(); });
+    assert(audio.readyState >= 2,'合成录音可解码');
+    const memory = {recordId:id,revision:1,title:'合成回归',body:'test',people:[],tags:[],createdAt:pending.startedAt,updatedAt:pending.startedAt,audio:{assetId:id,originalFilename:'test',sourceFormat:'webm',mimeType:blob.type,sizeBytes:blob.size,sha256:'test'}};
+    await store.commitRecording(memory,blob,id);
+    const reopened = createIndexedDbStore();
+    assert((await reopened.get(id))?.body === 'test','重新打开数据库读取正文');
+    assert((await reopened.getAudio(id))?.size === blob.size,'正文音频原子提交');
+    assert((await reopened.listChunks(id)).length === 0 && await reopened.getPendingRecording() === null,'成功后原子清理恢复标记');
+    await reopened.clearPendingRecording('other');
+    assert((await reopened.getAudio(id))?.size === blob.size,'清理别的会话不删除成品');
+    URL.revokeObjectURL(audio.src);
+    result.textContent += '\n全部通过';
+  } catch (e) { result.textContent += '\nFAIL '+e.stack; }
+  finally { recorder.cancel(); oscillator.stop(); await context.close(); navigator.mediaDevices.getUserMedia=original; }
+};
+</script></html>

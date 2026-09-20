@@ -1,0 +1,15 @@
+{
+  "id": "./mobile.html",
+  "name": "声文 · 手机记录",
+  "short_name": "声文",
+  "lang": "zh-CN",
+  "start_url": "./mobile.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    { "src": "./mobile-icon.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "./mobile-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

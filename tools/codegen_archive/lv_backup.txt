@@ -1,0 +1,702 @@
+﻿import { invoke } from '@tauri-apps/api/core';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSettingsStore } from '../stores/settingsStore';
+import type { Chapter, ChapterWithDrafts, LibraryProject, MemoryDetail, MemorySummary, TextVersion } from '../types';
+
+type Status = 'inbox' | 'pending' | 'organized' | 'in_chapter';
+const statuses: { value: Status; label: string }[] = [
+  { value: 'inbox', label: '收件箱' },
+  { value: 'pending', label: '待整理' },
+  { value: 'organized', label: '已整理' },
+  { value: 'in_chapter', label: '已纳入章节' },
+];
+
+function statusLabel(status: string) {
+  return statuses.find((item) => item.value === status)?.label ?? status;
+}
+
+function statusStyle(status: string) {
+  const map: Record<string, string> = {
+    inbox: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+    pending: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
+    organized: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+    in_chapter: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
+  };
+  return map[status] || 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border-transparent';
+}
+
+function splitNames(value: string) {
+  return value.split(/[，,]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function formatDate(value?: string) {
+  if (!value) return '未标注时间';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function dateSortValue(value?: string) {
+  const parts = value?.match(/(\d{4})(?:\D+(\d{1,2}))?(?:\D+(\d{1,2}))?/) ?? [];
+  if (!parts[1]) return undefined;
+  const year = Number(parts[1]);
+  const month = Number(parts[2] || 1);
+  const day = Number(parts[3] || 1);
+  return year * 10000 + month * 100 + day;
+}
+
+export function LibraryView() {
+  const settings = useSettingsStore((state) => state.settings);
+  const [projects, setProjects] = useState<LibraryProject[]>([]);
+  const [projectId, setProjectId] = useState('');
+  const [memories, setMemories] = useState<MemorySummary[]>([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [detail, setDetail] = useState<MemoryDetail | null>(null);
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'dated' | 'undated'>('all');
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [textDraft, setTextDraft] = useState('');
+  const [browseMode, setBrowseMode] = useState<'list' | 'timeline' | 'people' | 'locations' | 'tags' | 'chapters'>('list');
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [selectedChapterId, setSelectedChapterId] = useState('');
+  const [chapterDetail, setChapterWithDrafts] = useState<ChapterWithDrafts | null>(null);
+  const [peopleList, setPeopleList] = useState<string[]>([]);
+  const [tagsList, setTagsList] = useState<string[]>([]);
+  const [locationsList, setLocationsList] = useState<string[]>([]);
+
+  const loadProjects = async () => {
+    const result = await invoke<LibraryProject[]>('list_library_projects');
+    setProjects(result);
+    const firstId = result[0]?.id || '';
+    const nextId = projectId || firstId;
+    setProjectId(nextId);
+    if (nextId) {
+      await loadMemories(nextId);
+      await loadChapters(nextId);
+      await loadBrowseData(nextId);
+    }
+  };
+
+  const loadMemories = async (targetProjectId: string) => {
+    if (!targetProjectId) { setMemories([]); return; }
+    const result = query.trim()
+      ? await invoke<MemorySummary[]>('search_memories', { query, projectId: targetProjectId })
+      : await invoke<MemorySummary[]>('list_memories', { projectId: targetProjectId, includeDeleted: showDeleted });
+    setMemories(result);
+    if (selectedId && !result.some((memory) => memory.id === selectedId)) {
+      setSelectedId('');
+      setDetail(null);
+    }
+  };
+
+  const loadDetail = async (memoryId: string) => {
+    const result = await invoke<MemoryDetail | null>('get_memory', { memoryId });
+    setDetail(result);
+    const current = result?.textVersions.find((version) => version.isCurrent);
+    setTextDraft(current?.content ?? '');
+    if (result) {
+      const chapters = await invoke<Chapter[]>('list_memory_chapters', { memoryId: result.id });
+      setDetail({ ...result, chapters } as MemoryDetail & { chapters: Chapter[] });
+    }
+  };
+
+  const loadChapters = async (targetProjectId = projectId) => {
+    if (!targetProjectId) { setChapters([]); return; }
+    const result = await invoke<Chapter[]>('list_chapters', { projectId: targetProjectId });
+    setChapters(result);
+  };
+
+  const loadChapterWithDrafts = async (chapterId: string) => {
+    const result = await invoke<ChapterWithDrafts | null>('get_chapter', { chapterId });
+    setChapterWithDrafts(result);
+  };
+
+  const loadBrowseData = async (targetProjectId = projectId) => {
+    if (!targetProjectId) return;
+    const [people, tags, locations] = await Promise.all([
+      invoke<string[]>('list_all_people', { projectId: targetProjectId }),
+      invoke<string[]>('list_all_tags', { projectId: targetProjectId }),
+      invoke<string[]>('list_all_locations', { projectId: targetProjectId }),
+    ]);
+    setPeopleList(people);
+    setTagsList(tags);
+    setLocationsList(locations);
+  };
+
+  useEffect(() => { void loadProjects().catch((error) => setNotice(`无法加载资料库：${String(error)}`)); }, []);
+  useEffect(() => {
+    if (!projectId) { setMemories([]); setChapters([]); return; }
+    void loadMemories(projectId).catch((error) => setNotice(`无法加载记忆：${String(error)}`));
+    void loadChapters(projectId).catch(() => {});
+    void loadBrowseData(projectId).catch(() => {});
+  }, [projectId, showDeleted]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (!projectId) return;
+      void loadMemories(projectId).catch((error) => setNotice(String(error)));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query, projectId]);
+
+  const visibleMemories = useMemo(() => memories.filter((memory) => {
+    if (statusFilter && memory.status !== statusFilter) return false;
+    if (timeFilter === 'dated' && !memory.eventDateText) return false;
+    if (timeFilter === 'undated' && memory.eventDateText) return false;
+    return true;
+  }), [memories, statusFilter, timeFilter]);
+
+  const createLibraryProject = async () => {
+    const name = window.prompt('回忆录项目名称', '我的口述史');
+    if (!name?.trim()) return;
+    const created = await invoke<LibraryProject>('create_library_project', { name: name.trim() });
+    await loadProjects();
+    setProjectId(created.id);
+    setNotice('已创建资料库项目。');
+  };
+
+  const createEmptyMemory = async () => {
+    if (!projectId) { await createLibraryProject(); return; }
+    const title = window.prompt('这段记忆的标题', `记忆 ${new Date().toLocaleDateString()}`);
+    if (!title?.trim()) return;
+    const memory = await invoke<MemorySummary>('create_memory', {
+      input: { projectId, title: title.trim(), status: 'inbox' },
+    });
+    await loadMemories(projectId);
+    setSelectedId(memory.id);
+    await loadDetail(memory.id);
+  };
+
+  const startRecording = async () => {
+    if (!projectId) { setNotice('请先创建或选择一个资料库项目。'); return; }
+    await invoke('start_recording');
+    setRecording(true);
+    setNotice('正在录音。停止后会自动转写并保存为一条记忆。');
+  };
+
+  const stopRecording = async () => {
+    setRecording(false);
+    setTranscribing(true);
+    try {
+      const title = window.prompt('这段口述的标题', `口述 ${new Date().toLocaleString()}`);
+      const audio = await invoke<{ audioPath: string; durationSecs: number }>('stop_recording');
+      const transcription = await invoke<{ text: string; confidence: number }>('transcribe_audio', {
+        audioPath: audio.audioPath,
+        modelSize: settings.whisperModel,
+        language: settings.whisperLanguage,
+        modelDir: settings.whisperModelDir || undefined,
+      });
+      const memory = await invoke<MemorySummary>('create_memory', {
+        input: {
+          projectId,
+          title: title?.trim() || `口述 ${new Date().toLocaleDateString()}`,
+          audioRecordedAt: new Date().toISOString(),
+          audioPath: audio.audioPath,
+          durationSecs: audio.durationSecs,
+          rawText: transcription.text || '',
+          status: 'inbox',
+        },
+      });
+      await loadMemories(projectId);
+      setSelectedId(memory.id);
+      await loadDetail(memory.id);
+      setNotice('录音、原始转写和记忆条目已保存。');
+    } catch (error) {
+      setNotice(`录音或转写失败：${String(error)}`);
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const selectMemory = async (memoryId: string) => {
+    setSelectedId(memoryId);
+    await loadDetail(memoryId);
+  };
+
+  const saveMetadata = async () => {
+    if (!detail) return;
+    try {
+      await invoke('update_memory_metadata', { input: {
+        id: detail.id,
+        title: detail.title,
+        audioRecordedAt: detail.audioRecordedAt || undefined,
+        eventDateText: detail.eventDateText || undefined,
+        eventDatePrecision: detail.eventDatePrecision || 'unknown',
+        eventDateSort: dateSortValue(detail.eventDateText),
+        location: detail.location || undefined,
+        notes: detail.notes || undefined,
+        status: detail.status,
+      } });
+      await invoke('set_memory_tags', { memoryId: detail.id, names: detail.tags });
+      await invoke('set_memory_people', { memoryId: detail.id, names: detail.people });
+      await loadMemories(projectId);
+      await loadDetail(detail.id);
+      setNotice('记忆元数据已保存。');
+    } catch (error) { setNotice(`保存失败：${String(error)}`); }
+  };
+
+  const saveWorkingText = async () => {
+    if (!detail) return;
+    const current = detail.textVersions.find((version) => version.isCurrent);
+    if (textDraft === (current?.content ?? '')) return;
+    await invoke<TextVersion>('create_text_version', {
+      memoryId: detail.id,
+      content: textDraft,
+      versionType: 'user_edit',
+      processingType: 'manual_edit',
+      parentVersionId: current?.id,
+    });
+    await loadDetail(detail.id);
+    await loadMemories(projectId);
+    setNotice('已保存为新的人工校订版本；原始转写未被修改。');
+  };
+
+  const restoreVersion = async (versionId: string) => {
+    if (!detail) return;
+    await invoke('restore_text_version', { versionId });
+    await loadDetail(detail.id);
+    setNotice('已切换到该版本。');
+  };
+
+  const deleteVersion = async (versionId: string) => {
+    if (!detail) return;
+    if (!window.confirm('确定删除这个版本？删除后不可恢复。')) return;
+    await invoke('delete_text_version', { versionId });
+    await loadDetail(detail.id);
+    setNotice('版本已删除。');
+  };
+
+  const removeMemory = async () => {
+    if (!detail || !window.confirm('将此记忆移入可恢复的删除状态。确认继续？')) return;
+    await invoke('delete_memory', { memoryId: detail.id });
+    setDetail(null); setSelectedId('');
+    await loadMemories(projectId);
+  };
+
+  const createChapter = async () => {
+    if (!projectId) return;
+    const title = window.prompt('章节标题', '第 X 章');
+    if (!title?.trim()) return;
+    await invoke('create_chapter', { projectId, title: title.trim() });
+    await loadChapters(projectId);
+    setNotice('章节已创建。');
+  };
+
+  const addMemoryToChapter = async (chapterId: string) => {
+    if (!detail) return;
+    await invoke('add_memory_to_chapter', { chapterId, memoryId: detail.id });
+    await loadChapters(projectId);
+    const updated = await invoke<Chapter[]>('list_memory_chapters', { memoryId: detail.id });
+    setDetail({ ...detail, chapters: updated } as MemoryDetail & { chapters: Chapter[] });
+    setNotice('已添加到章节。');
+  };
+
+  const removeMemoryFromChapter = async (chapterId: string) => {
+    if (!detail) return;
+    await invoke('remove_memory_from_chapter', { chapterId, memoryId: detail.id });
+    await loadChapters(projectId);
+    const updated = await invoke<Chapter[]>('list_memory_chapters', { memoryId: detail.id });
+    setDetail({ ...detail, chapters: updated } as MemoryDetail & { chapters: Chapter[] });
+    setNotice('已从章节中移除。');
+  };
+
+  const restoreMemory = async () => {
+    if (!detail) return;
+    await invoke('restore_memory', { memoryId: detail.id });
+    await loadMemories(projectId);
+    await loadDetail(detail.id);
+  };
+
+  return <div className="flex min-h-0 flex-1 bg-[var(--bg-primary)]">
+    <aside className="flex w-80 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-secondary)]">
+      <div className="border-b border-[var(--border)] p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--accent)]">Oral History</div>
+            <h2 className="mt-0.5 text-base font-bold">资料库</h2>
+          </div>
+          <button onClick={() => void createLibraryProject()} className="rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] transition">新项目</button>
+        </div>
+        <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="control w-full text-sm">
+          <option value="">选择资料库项目</option>
+          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+        </select>
+      </div>
+      <div className="flex gap-1 border-b border-[var(--border)] p-2 overflow-x-auto">
+        {([['list','列表'],['people','人物'],['locations','地点'],['tags','标签'],['chapters','章节']] as const).map(([mode,label]) => (
+          <button key={mode} onClick={() => { setBrowseMode(mode); setSelectedChapterId(''); setChapterWithDrafts(null); }} className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-medium transition ${browseMode === mode ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}>{label}</button>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {browseMode === 'list' && (
+          <div className="p-2 space-y-2">
+            <div className="relative">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input className="control w-full pl-8 text-sm" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索关键词、人物、地点…" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select className="control w-full text-xs" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="">全部状态</option>
+                {statuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+              </select>
+              <select className="control w-full text-xs" value={timeFilter} onChange={(event) => setTimeFilter(event.target.value as typeof timeFilter)}>
+                <option value="all">全部时间</option>
+                <option value="dated">已标注时间</option>
+                <option value="undated">未标注时间</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer">
+              <input type="checkbox" checked={showDeleted} onChange={(event) => setShowDeleted(event.target.checked)} className="rounded border-[var(--border)] bg-[var(--bg-tertiary)]" />
+              显示已删除
+            </label>
+            <div className="space-y-1 pt-1">
+              {visibleMemories.map((memory) => (
+                <button key={memory.id} onClick={() => void selectMemory(memory.id)} className={`group w-full rounded-lg border p-3 text-left transition-all ${selectedId === memory.id ? 'border-[var(--accent)]/50 bg-[var(--accent)]/10 shadow-sm' : 'border-transparent hover:bg-[var(--bg-tertiary)] hover:border-[var(--border)]'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="truncate text-sm font-medium text-[var(--text-primary)]">{memory.title}</div>
+                    {memory.audioCount > 0 && <span className="shrink-0 text-[10px] opacity-60">🎙</span>}
+                  </div>
+                  <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{memory.eventDateText || formatDate(memory.audioRecordedAt)}</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${statusStyle(memory.status)}`}>{statusLabel(memory.status)}</span>
+                    {memory.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-md bg-purple-500/10 px-1.5 py-0.5 text-[10px] text-purple-300">#{tag}</span>)}
+                  </div>
+                </button>
+              ))}
+              {projectId && visibleMemories.length === 0 && <p className="py-4 text-center text-xs text-[var(--text-secondary)]">还没有符合条件的记忆</p>}
+            </div>
+          </div>
+        )}
+        {browseMode === 'people' && (
+          <div className="p-2 space-y-1">
+            {peopleList.map((name) => (
+              <button key={name} onClick={() => { void (async () => { const result = await invoke<MemorySummary[]>('list_memories_by_filter', { projectId, filterType: 'person', filterValue: name }); setMemories(result); setBrowseMode('list'); })(); }} className="w-full rounded-lg border border-transparent p-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] hover:border-[var(--border)] transition">
+                {name}
+              </button>
+            ))}
+            {peopleList.length === 0 && <p className="py-4 text-center text-xs text-[var(--text-secondary)]">暂无人物数据</p>}
+          </div>
+        )}
+        {browseMode === 'locations' && (
+          <div className="p-2 space-y-1">
+            {locationsList.map((name) => (
+              <button key={name} onClick={() => { void (async () => { const result = await invoke<MemorySummary[]>('list_memories_by_filter', { projectId, filterType: 'location', filterValue: name }); setMemories(result); setBrowseMode('list'); })(); }} className="w-full rounded-lg border border-transparent p-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] hover:border-[var(--border)] transition">
+                {name}
+              </button>
+            ))}
+            {locationsList.length === 0 && <p className="py-4 text-center text-xs text-[var(--text-secondary)]">暂无地点数据</p>}
+          </div>
+        )}
+        {browseMode === 'tags' && (
+          <div className="p-2 space-y-1">
+            {tagsList.map((name) => (
+              <button key={name} onClick={() => { void (async () => { const result = await invoke<MemorySummary[]>('list_memories_by_filter', { projectId, filterType: 'tag', filterValue: name }); setMemories(result); setBrowseMode('list'); })(); }} className="w-full rounded-lg border border-transparent p-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] hover:border-[var(--border)] transition">
+                #{name}
+              </button>
+            ))}
+            {tagsList.length === 0 && <p className="py-4 text-center text-xs text-[var(--text-secondary)]">暂无标签数据</p>}
+          </div>
+        )}
+        {browseMode === 'chapters' && (
+          <div className="p-2 space-y-2">
+            <button onClick={() => void createChapter()} className="w-full rounded-lg border border-[var(--accent)]/40 px-3 py-2 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition">+ 新建章节</button>
+            <div className="space-y-1">
+              {chapters.map((chapter) => (
+                <button key={chapter.id} onClick={() => { setSelectedChapterId(chapter.id); void loadChapterWithDrafts(chapter.id); }} className={`w-full rounded-lg border p-3 text-left transition ${selectedChapterId === chapter.id ? 'border-[var(--accent)]/50 bg-[var(--accent)]/10' : 'border-transparent hover:bg-[var(--bg-tertiary)] hover:border-[var(--border)]'}`}>
+                  <div className="text-sm font-medium text-[var(--text-primary)]">{chapter.title}</div>
+                  <div className="mt-1 text-[10px] text-[var(--text-secondary)]">顺序 {chapter.sortOrder}</div>
+                </button>
+              ))}
+              {chapters.length === 0 && <p className="py-4 text-center text-xs text-[var(--text-secondary)]">还没有章节</p>}
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 border-t border-[var(--border)] p-3">
+        <button onClick={() => void createEmptyMemory()} className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg-tertiary)] px-2 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--border)] transition">新建记忆</button>
+        <button onClick={() => void (recording ? stopRecording() : startRecording())} disabled={transcribing} className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium text-white disabled:opacity-50 transition ${recording ? 'bg-red-600 hover:bg-red-700' : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'}`}>
+          {transcribing ? '转写中…' : recording ? '停止录音' : '录制口述'}
+        </button>
+      </div>
+    </aside>
+    <main className="min-w-0 flex-1 overflow-y-auto p-6">
+      {notice && <div className="mb-4 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-4 py-2.5 text-sm text-[var(--text-primary)] flex items-center gap-2"><span className="text-[var(--accent)]">ℹ</span>{notice}</div>}
+      {browseMode === 'chapters' && chapterDetail ? (
+        <ChapterView chapter={chapterDetail} onSelectMemory={(id) => { setBrowseMode('list'); void selectMemory(id); }} onRemoveMemory={(chapterId, memoryId) => { void (async () => { await invoke('remove_memory_from_chapter', { chapterId, memoryId }); await loadChapterWithDrafts(chapterId); })(); }} />
+      ) : !detail ? (
+        <div className="flex h-full items-center justify-center text-center text-[var(--text-secondary)]">
+          <div className="max-w-sm">
+            <div className="text-5xl mb-4">🎙️</div>
+            <p className="text-lg font-medium text-[var(--text-primary)]">选择一条记忆，或开始录制新的口述</p>
+            <p className="mt-2 text-sm leading-relaxed">原始音频和原始转写会被永久保留。<br/>后续编辑都会创建新版本，不会覆盖原始素材。</p>
+          </div>
+        </div>
+      ) : (
+        <MemoryEditor detail={detail} textDraft={textDraft} setTextDraft={setTextDraft} setDetail={setDetail} saveMetadata={saveMetadata} saveWorkingText={saveWorkingText} restoreVersion={restoreVersion} deleteVersion={deleteVersion} removeMemory={removeMemory} restoreMemory={restoreMemory} loadDetail={loadDetail} chapters={chapters} onAddToChapter={addMemoryToChapter} onRemoveFromChapter={removeMemoryFromChapter} />
+      )}
+    </main>
+  </div>;
+}
+
+function LazyAudioPlayer({ audio }: { audio: { id: string; filePath: string; durationSecs?: number } }) {
+  const [src, setSrc] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const base64 = await invoke<string>('read_audio_file', { filePath: audio.filePath });
+        if (!cancelled) {
+          setSrc(`data:audio/wav;base64,${base64}`);
+          setError('');
+        }
+      } catch (e) {
+        if (!cancelled) setError(`加载音频失败: ${String(e)}`);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [audio.filePath]);
+
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/15 text-[var(--accent)]">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-medium">{audio.filePath.split('\\').pop()}</div>
+          {audio.durationSecs !== undefined && <div className="text-[10px] text-[var(--text-secondary)]">{audio.durationSecs.toFixed(1)} 秒</div>}
+        </div>
+      </div>
+      {loading && <p className="mt-2 text-xs text-[var(--text-secondary)]">加载中…</p>}
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {src && <audio className="mt-2 w-full" controls src={src} />}
+    </div>
+  );
+}
+
+function AIProcessor({ memoryId, versionId, onDone }: { memoryId: string; versionId?: string; onDone: () => void }) {
+  const settings = useSettingsStore((state) => state.settings);
+  const [processingType, setProcessingType] = useState<'correct' | 'summarize' | 'extract' | 'polish' | 'rewrite'>('polish');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef<number | null>(null);
+
+  const config = settings.llm?.polish;
+  const isConfigured = !!(config?.baseUrl && config?.modelName);
+
+  useEffect(() => {
+    if (isProcessing) {
+      setElapsed(0);
+      timerRef.current = window.setInterval(() => setElapsed((e) => e + 1), 1000);
+    } else if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    return () => {
+      if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null; }
+    };
+  }, [isProcessing]);
+
+  const handleProcess = async () => {
+    if (!isConfigured) { setNotice('LLM 未配置，请先在设置中填写 API 信息。'); return; }
+    setIsProcessing(true); setNotice('');
+    try {
+      await invoke('ai_process_memory', {
+        memoryId,
+        versionId: versionId || null,
+        processingType,
+        config,
+      });
+      setNotice('AI 整理完成，已保存为新版本。');
+      onDone();
+    } catch (e) {
+      setNotice(`整理失败：${String(e)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const providerLabel = config?.baseUrl?.includes('localhost') || config?.baseUrl?.includes('127.0.0.1') ? '本地 Ollama' : '远程 API';
+
+  return <div className="space-y-3">
+    <div className="flex flex-wrap items-center gap-3">
+      <select className="control text-xs" value={processingType} onChange={(event) => setProcessingType(event.target.value as typeof processingType)} disabled={isProcessing}>
+        <option value="correct">只修正口语和错字</option>
+        <option value="summarize">压缩成摘要</option>
+        <option value="extract">提炼人物/时间/地点/事件</option>
+        <option value="polish">事实整理（分段+去冗余）</option>
+        <option value="rewrite">文学化改写（创作性）</option>
+      </select>
+      <button onClick={() => void handleProcess()} disabled={isProcessing || !isConfigured} className={`rounded-lg px-4 py-2 text-xs font-medium text-white transition flex items-center gap-2 ${isProcessing || !isConfigured ? 'opacity-50 cursor-not-allowed bg-[var(--bg-tertiary)]' : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'}`}>
+        {isProcessing && <span className="inline-block h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+        {isProcessing ? `整理中（${elapsed}s）` : '开始整理'}
+      </button>
+    </div>
+    {isProcessing && <div className="text-xs text-[var(--text-secondary)]">正在连接模型并等待响应，请勿关闭应用…</div>}
+    {config?.modelName && !isProcessing && <div className="text-[10px] text-[var(--text-secondary)]">当前模型：{config.modelName} · {providerLabel}</div>}
+    {!isConfigured && <div className="text-xs text-amber-400">⚠️ 请在「设置」中配置 LLM API 地址和模型名称后再使用 AI 整理。</div>}
+    {notice && <div className={`text-xs ${notice.includes('失败') ? 'text-red-400' : 'text-emerald-400'}`}>{notice}</div>}
+  </div>;
+}
+
+function ChapterView({ chapter, onSelectMemory, onRemoveMemory }: { chapter: ChapterWithDrafts; onSelectMemory: (id: string) => void; onRemoveMemory: (chapterId: string, memoryId: string) => void }) {
+  return <div className="mx-auto max-w-3xl space-y-5">
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <h2 className="text-xl font-bold text-[var(--text-primary)]">{chapter.title}</h2>
+      <p className="mt-2 text-xs text-[var(--text-secondary)]">{chapter.memories.length} 条记忆</p>
+    </div>
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">章节素材</h3>
+      <div className="space-y-2">
+        {chapter.memories.map((memory) => (
+          <div key={memory.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-3">
+            <button onClick={() => onSelectMemory(memory.id)} className="min-w-0 text-left">
+              <div className="text-sm font-medium text-[var(--text-primary)]">{memory.title}</div>
+              <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{memory.eventDateText || formatDate(memory.audioRecordedAt)}</div>
+            </button>
+            <button onClick={() => onRemoveMemory(chapter.id, memory.id)} className="shrink-0 rounded-md border border-red-500/20 px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/10 transition">移除</button>
+          </div>
+        ))}
+        {chapter.memories.length === 0 && <p className="text-sm text-[var(--text-secondary)]">此章节还没有关联记忆。</p>}
+      </div>
+    </section>
+  </div>;
+}
+
+function MemoryEditor({ detail, textDraft, setTextDraft, setDetail, saveMetadata, saveWorkingText, restoreVersion, deleteVersion, removeMemory, restoreMemory, loadDetail, chapters, onAddToChapter, onRemoveFromChapter }: {
+  detail: MemoryDetail;
+  textDraft: string;
+  setTextDraft: (v: string) => void;
+  setDetail: (v: MemoryDetail | null) => void;
+  saveMetadata: () => Promise<void>;
+  saveWorkingText: () => Promise<void>;
+  restoreVersion: (id: string) => Promise<void>;
+  deleteVersion: (id: string) => Promise<void>;
+  removeMemory: () => Promise<void>;
+  restoreMemory: () => Promise<void>;
+  loadDetail: (id: string) => Promise<void>;
+  chapters: Chapter[];
+  onAddToChapter: (chapterId: string) => Promise<void>;
+  onRemoveFromChapter: (chapterId: string) => Promise<void>;
+}) {
+  const current = detail.textVersions.find((version) => version.isCurrent);
+  const deleted = !!detail.deletedAt;
+  const update = (patch: Partial<MemoryDetail>) => setDetail({ ...detail, ...patch });
+
+  return <div className="mx-auto max-w-3xl space-y-5">
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <div className="min-w-0 flex-1">
+        <input className="w-full bg-transparent text-xl font-bold text-[var(--text-primary)] outline-none placeholder:text-[var(--text-secondary)]" value={detail.title} onChange={(event) => update({ title: event.target.value })} placeholder="记忆标题" />
+        <p className="mt-2 text-xs text-[var(--text-secondary)]">
+          {deleted ? <span className="text-red-400">已删除 · </span> : null}
+          创建于 {formatDate(detail.createdAt)} · {detail.audioCount} 段音频 · {detail.versionCount} 个文本版本
+        </p>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        <button onClick={() => void saveMetadata()} className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] transition">保存信息</button>
+        {deleted
+          ? <button onClick={() => void restoreMemory()} className="rounded-lg border border-emerald-500/40 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/10 transition">恢复</button>
+          : <button onClick={() => void removeMemory()} className="rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/10 transition">删除</button>
+        }
+      </div>
+    </div>
+
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">元数据</h3>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="事件发生时间"><input className="control w-full" value={detail.eventDateText || ''} onChange={(event) => update({ eventDateText: event.target.value })} placeholder="如：1998 年夏天、大约某年" /></Field>
+        <Field label="时间精度"><select className="control w-full" value={detail.eventDatePrecision} onChange={(event) => update({ eventDatePrecision: event.target.value })}><option value="unknown">未确定</option><option value="exact">精确日期</option><option value="year_month">年月</option><option value="year">年份</option><option value="approximate">大约某年</option></select></Field>
+        <Field label="地点"><input className="control w-full" value={detail.location || ''} onChange={(event) => update({ location: event.target.value })} placeholder="地点" /></Field>
+        <Field label="状态"><select className="control w-full" value={detail.status} onChange={(event) => update({ status: event.target.value })}>{statuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></Field>
+        <Field label="人物（用逗号分隔）"><input className="control w-full" value={detail.people.join('，')} onChange={(event) => update({ people: splitNames(event.target.value) })} placeholder="母亲，老师…" /></Field>
+        <Field label="标签（用逗号分隔）"><input className="control w-full" value={detail.tags.join('，')} onChange={(event) => update({ tags: splitNames(event.target.value) })} placeholder="童年，学校…" /></Field>
+        <div className="md:col-span-2"><Field label="备注"><textarea className="control min-h-24 w-full" value={detail.notes || ''} onChange={(event) => update({ notes: event.target.value })} placeholder="尚待核实的细节、后续想补充的内容…" /></Field></div>
+      </div>
+    </section>
+
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">原始音频</h3>
+      {detail.audioAssets.length === 0 ? <p className="text-sm text-[var(--text-secondary)]">此记忆暂无录音文件。</p> : <div className="space-y-3">{detail.audioAssets.map((audio) => <LazyAudioPlayer key={audio.id} audio={audio} />)}</div>}
+    </section>
+
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">当前工作文本</h3>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">保存会产生新的人工校订版本，原始转写不会被覆盖。</p>
+        </div>
+        <button onClick={() => void saveWorkingText()} className="rounded-lg border border-[var(--accent)]/40 px-4 py-2 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition">保存为新版本</button>
+      </div>
+      <textarea className="control min-h-56 w-full leading-relaxed" value={textDraft} onChange={(event) => setTextDraft(event.target.value)} placeholder="原始转写会显示在这里；你可以开始校订。" />
+      <div className="mt-3 text-xs text-[var(--text-secondary)]">当前版本：{current?.versionType || '暂无文本'} · {current ? formatDate(current.createdAt) : ''}</div>
+    </section>
+
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">AI 整理</h3>
+      <AIProcessor memoryId={detail.id} versionId={current?.id} onDone={() => void loadDetail(detail.id)} />
+    </section>
+
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">所属章节</h3>
+      <div className="space-y-2">
+        {(detail as any).chapters?.map((chapter: Chapter) => (
+          <div key={chapter.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-2">
+            <div className="text-sm font-medium text-[var(--text-primary)]">{chapter.title}</div>
+            <button onClick={() => void onRemoveFromChapter(chapter.id)} className="shrink-0 rounded-md border border-red-500/20 px-2 py-0.5 text-[10px] text-red-400 hover:bg-red-500/10 transition">移除</button>
+          </div>
+        ))}
+        {(!(detail as any).chapters || (detail as any).chapters.length === 0) && <p className="text-xs text-[var(--text-secondary)]">此记忆尚未加入任何章节</p>}
+        {chapters.length > 0 && (
+          <div className="flex gap-2 pt-1">
+            <select id="add-to-chapter" className="control flex-1 text-xs">
+              <option value="">选择章节...</option>
+              {chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.title}</option>)}
+            </select>
+            <button onClick={() => { const select = document.getElementById('add-to-chapter') as HTMLSelectElement; if (select.value) void onAddToChapter(select.value); }} className="rounded-md border border-[var(--accent)]/40 px-3 py-1 text-xs text-[var(--accent)] hover:bg-[var(--accent)]/10 transition">添加</button>
+          </div>
+        )}
+      </div>
+    </section>
+
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+      <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">版本历史</h3>
+      <div className="space-y-2">
+        {detail.textVersions.map((version) => (
+          <div key={version.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-3 transition hover:border-[var(--accent)]/30">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs font-medium">
+                <span className={`h-1.5 w-1.5 rounded-full ${version.isCurrent ? 'bg-[var(--accent)]' : 'bg-[var(--text-secondary)]'}`} />
+                {version.versionType}
+                {version.isCurrent && <span className="rounded bg-[var(--accent)]/15 px-1.5 py-0.5 text-[10px] text-[var(--accent)]">当前</span>}
+              </div>
+              <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{formatDate(version.createdAt)} · {version.content.slice(0, 90) || '（空文本）'}</div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              {!version.isCurrent && <button onClick={() => void restoreVersion(version.id)} className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--accent)] hover:bg-[var(--accent)]/10 hover:border-[var(--accent)]/30 transition">切换为当前</button>}
+              <button onClick={() => void deleteVersion(version.id)} className="rounded-md border border-red-500/20 px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition">删除</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block">
+    <span className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">{label}</span>
+    {children}
+  </label>;
+}
+

@@ -1,0 +1,45 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "声文",
+  "version": "0.1.0",
+  "identifier": "com.voice-to-essay.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:57123",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "声文 - Voice to Essay",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../python_stt/transcribe.py": "./resources/python_stt/transcribe.py",
+      "../python_stt/audio_probe.py": "./resources/python_stt/audio_probe.py",
+      "../python_stt/convert_audio.py": "./resources/python_stt/convert_audio.py",
+      "../python_stt/requirements.txt": "./resources/python_stt/requirements.txt"
+    }
+  }
+}

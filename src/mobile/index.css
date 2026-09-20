@@ -1,0 +1,52 @@
+/* C1：手机记录端样式。复用桌面端的设计 token，只做移动端必要的覆盖。 */
+@import '../index.css';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* 手机端用 flex 三段式布局：顶栏 / 可滚动内容 / 底部导航 */
+#root {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body {
+  /* 允许跟随系统字号缩放，不锁定文本大小（适配"大字体"要求） */
+  -webkit-text-size-adjust: 100%;
+  /* 避免下拉时整页回弹影响录音操作 */
+  overscroll-behavior-y: none;
+}
+
+/* 安全区：避开刘海 / 底部横条（需 viewport-fit=cover） */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* 触控目标至少 44×44 CSS 像素（计划明确要求） */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* 长标题 / 长内容换行，避免横向溢出 */
+.wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 底部导航可横向滚动时隐藏滚动条 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
