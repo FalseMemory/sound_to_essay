@@ -11,7 +11,7 @@ iPhone 优先的本地网页记录端已补充 PWA 离线缓存、录音恢复�
 - 构建：`node tools/build-mobile.mjs`，只把生成的 `dist-mobile` 部署到固定的可信 HTTPS 地址，入口 `mobile.html`；不要上传整个工程。
 - 测试进展：TypeScript、Vite、Rust 13 项测试、浏览器合成录音与离线重开通过；iPhone 真机与 Windows 完整流程仍待验收。
 - Windows 发布版仍需要外部 Python（faster-whisper、PyAV）和已下载模型，不是完全独立运行包。
-- 详细修复、限制、发布说明与手动步骤见 [本轮验收记录](docs/2026-09-19-验收与发布说明.md)。
+- 详细修复、限制、发布说明与手动步骤见 [本轮验收记录](docs/验收与复核.md)。
 
 ---
 
@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 
 这两个脚本会**自动**检查 `node` / `cargo` / `python`，创建并配置 `python_stt/.venv`（含 faster-whisper），确保 `node_modules`，再执行 `npm run tauri dev` 拉起应用。可反复运行（幂等）。
 
-窗口弹出后，先到「设置」页下载一个 Whisper 模型即可开始口述。完整环境要求、手动安装步骤、常见问题与打包命令见 **[`docs/安装与启动教程.md`](docs/安装与启动教程.md)**。
+窗口弹出后，先到「设置」页下载一个 Whisper 模型即可开始口述。完整环境要求、手动安装步骤、常见问题与打包命令见 **[`docs/安装与启动.md`](docs/安装与启动.md)**。
 
 ---
 
@@ -334,7 +334,7 @@ cd F:\AI\sound_to_essay
 npm run tauri dev
 ```
 
-> 一键方式：仓库根目录提供了 `start.ps1`（Windows PowerShell）与 `start.sh`（Git Bash / Linux / macOS），会自动检查依赖、安装 Python 虚拟环境与 faster-whisper、确保 node_modules，再执行上面的命令。详见 [`docs/安装与启动教程.md`](docs/安装与启动教程.md)。
+> 一键方式：仓库根目录提供了 `start.ps1`（Windows PowerShell）与 `start.sh`（Git Bash / Linux / macOS），会自动检查依赖、安装 Python 虚拟环境与 faster-whisper、确保 node_modules，再执行上面的命令。详见 [`docs/安装与启动.md`](docs/安装与启动.md)。
 
 `npm run tauri dev` 会：
 1. 编译 Rust 后端（首次较慢，需耐心等待窗口弹出）
