@@ -787,6 +787,72 @@ export function LibraryView() {
               删除当前项目
             </button>
           )}
+
+          {/* 导入入口：常驻在此，避免用户切到「章节」模式才找得到 */}
+          {projectId && (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
+              <div className="text-xs font-semibold text-[var(--text-secondary)]">导入到本资料库</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => void choosePackFile()}
+                  className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1.5 text-[11px] font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-tertiary)]"
+                  title="导入手机导出的 .svpack 素材包"
+                >
+                  素材包…
+                </button>
+                <button
+                  onClick={() => void chooseImportFiles()}
+                  className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1.5 text-[11px] font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-tertiary)]"
+                  title="直接导入电脑上的音频文件"
+                >
+                  音频文件…
+                </button>
+              </div>
+
+              {packNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{packNotice}</div>}
+              {packPreview && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
+                  <div className="text-[11px] text-[var(--text-primary)]">
+                    记录 {packPreview.recordCount} 条 · 音频 {packPreview.audioCount} 个
+                    {packPreview.duplicates > 0 && ` · 重复 ${packPreview.duplicates}`}
+                    {packPreview.conflicts > 0 && ` · 冲突 ${packPreview.conflicts}`}
+                    {packPreview.missingAudio > 0 && ` · 缺失音频 ${packPreview.missingAudio}`}
+                  </div>
+                  <div className="text-[10px] text-[var(--text-secondary)]">
+                    导出时间：{formatDate(packPreview.exportedAt)} · 协议 v{packPreview.formatVersion}
+                  </div>
+                  <button onClick={() => void runPackImport()} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[var(--accent-hover)] transition">
+                    导入此素材包
+                  </button>
+                </div>
+              )}
+
+              {importNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{importNotice}</div>}
+              {importCandidates.map((candidate) => (
+                <div key={candidate.sourcePath} className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-[11px] font-medium text-[var(--text-primary)]">{candidate.fileName}</div>
+                      <div className="text-[10px] text-[var(--text-secondary)]">
+                        {candidate.format.toUpperCase()}
+                        {candidate.durationSecs != null && ` · ${candidate.durationSecs.toFixed(1)}s`}
+                        {candidate.sampleRate != null && ` · ${candidate.sampleRate}Hz`}
+                        {candidate.alreadyImported && ' · 已导入'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => void runImport(candidate)}
+                      disabled={!!candidate.error || candidate.alreadyImported}
+                      className="shrink-0 rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
+                    >
+                      导入
+                    </button>
+                  </div>
+                  {candidate.error && <div className="text-[10px] text-red-600 dark:text-red-300">{candidate.error}</div>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Browse mode switcher - modern segmented control */}
@@ -883,63 +949,6 @@ export function LibraryView() {
                   <button onClick={() => void exportBook()} title="导出整本回忆录为单个 Markdown" className="text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] hover:underline">导出整本</button>
                   <button onClick={() => void createChapter()} className="text-[10px] font-medium text-[var(--accent)] hover:underline">+ 新建</button>
                 </div>
-              </div>
-
-              {/* B1：导入音频入口 */}
-              <div className="mb-3 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold text-[var(--text-secondary)]">导入音频</div>
-                  <button onClick={() => void chooseImportFiles()} className="text-[10px] font-medium text-[var(--accent)] hover:underline">选择文件…</button>
-                </div>
-                {importNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{importNotice}</div>}
-                {importCandidates.map((candidate) => (
-                  <div key={candidate.sourcePath} className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-[11px] font-medium text-[var(--text-primary)]">{candidate.fileName}</div>
-                        <div className="text-[10px] text-[var(--text-secondary)]">
-                          {candidate.format.toUpperCase()}
-                          {candidate.durationSecs != null && ` · ${candidate.durationSecs.toFixed(1)}s`}
-                          {candidate.sampleRate != null && ` · ${candidate.sampleRate}Hz`}
-                          {candidate.alreadyImported && ' · 已导入'}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => void runImport(candidate)}
-                        disabled={!!candidate.error || candidate.alreadyImported}
-                        className="shrink-0 rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
-                      >
-                        导入
-                      </button>
-                    </div>
-                    {candidate.error && <div className="text-[10px] text-red-600 dark:text-red-300">{candidate.error}</div>}
-                  </div>
-                ))}
-              </div>
-
-              {/* B3：素材包导入入口 */}
-              <div className="mb-3 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold text-[var(--text-secondary)]">导入素材包</div>
-                  <button onClick={() => void choosePackFile()} className="text-[10px] font-medium text-[var(--accent)] hover:underline">选择素材包…</button>
-                </div>
-                {packNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{packNotice}</div>}
-                {packPreview && (
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
-                    <div className="text-[11px] text-[var(--text-primary)]">
-                      记录 {packPreview.recordCount} 条 · 音频 {packPreview.audioCount} 个
-                      {packPreview.duplicates > 0 && ` · 重复 ${packPreview.duplicates}`}
-                      {packPreview.conflicts > 0 && ` · 冲突 ${packPreview.conflicts}`}
-                      {packPreview.missingAudio > 0 && ` · 缺失音频 ${packPreview.missingAudio}`}
-                    </div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">
-                      导出时间：{formatDate(packPreview.exportedAt)} · 协议 v{packPreview.formatVersion}
-                    </div>
-                    <button onClick={() => void runPackImport()} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[var(--accent-hover)] transition">
-                      导入此素材包
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* A3：备份与恢复入口 */}
