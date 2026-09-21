@@ -96,6 +96,24 @@ fn extension_of(path: &Path) -> String {
         .unwrap_or_default()
 }
 
+/// 允许导入的音频扩展名。
+///
+/// **这里是真正的准入关卡**——前端文件选择器的 `extensions` 只影响选择器筛选，
+/// 用户仍可切到「所有文件」。三处必须保持一致，否则会出现
+/// 「能选中却提示不支持」的割裂（`.mp4` 曾经就是这样）：
+///   1. `src/components/LibraryView.tsx` 的 `extensions`
+///   2. 本常量
+///   3. `python_stt/audio_probe.py` 的 `_sniff`
+const SUPPORTED_EXTENSIONS: &[&str] = &[
+    "wav", "wave", "mp3", "mp2", "m4a", "m4b", "mp4", "aac", "ogg", "oga", "opus", "flac",
+    "webm", "amr", "awb", "wma", "aiff", "aif", "aifc", "caf", "au", "snd", "3gp", "3gpp",
+    "ape", "wv", "gsm", "sln", "ac3", "dts",
+];
+
+fn is_supported_extension(ext: &str) -> bool {
+    SUPPORTED_EXTENSIONS.contains(&ext)
+}
+
 /// 探测单个文件，返回导入候选信息（供前端展示与预校验）。
 pub fn inspect_candidate(library: &Library, source_path: &Path) -> ImportCandidate {
     let file_name = source_path
@@ -105,8 +123,7 @@ pub fn inspect_candidate(library: &Library, source_path: &Path) -> ImportCandida
     let size_bytes = fs::metadata(source_path).map(|m| m.len()).unwrap_or(0);
     let ext = extension_of(source_path);
 
-    let supported = matches!(ext.as_str(), "wav" | "m4a" | "aac" | "mp3" | "ogg" | "flac" | "aiff" | "aif");
-    if !supported {
+    if !is_supported_extension(&ext) {
         return ImportCandidate {
             source_path: source_path.to_string_lossy().to_string(),
             file_name,
@@ -173,7 +190,7 @@ pub fn import_audio(
         return Err(format!("源文件不存在: {:?}", source_path));
     }
     let ext = extension_of(source_path);
-    if !matches!(ext.as_str(), "wav" | "m4a" | "aac" | "mp3" | "ogg" | "flac" | "aiff" | "aif") {
+    if !is_supported_extension(&ext) {
         return Err(format!("不支持的音频格式 .{}", ext));
     }
 
@@ -264,4 +281,34 @@ pub fn import_audio(
         file_checksum: checksum,
         transcribe_task_created: true,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 准入白名单必须覆盖用户实际会遇到的常见格式。
+    ///
+    /// 这条测试的存在理由：前端文件选择器、本白名单、`audio_probe.py` 的 `_sniff`
+    /// 是三处独立维护的清单。一旦只有前端放宽，用户就能选中文件、却在导入时报
+    /// 「不支持的音频格式」——`.mp4` 正是这样被漏掉的。锁定常见格式，防止重演。
+    #[test]
+    fn supported_extensions_cover_common_formats() {
+        for ext in [
+            "wav", "wave", "mp3", "mp2", "m4a", "m4b", "mp4", "aac", "ogg", "oga", "opus",
+            "flac", "webm", "amr", "awb", "wma", "aiff", "aif", "aifc", "caf", "au", "snd",
+            "3gp", "3gpp", "ape", "wv", "gsm", "sln", "ac3", "dts",
+        ] {
+            assert!(is_supported_extension(ext), "应支持 .{ext}");
+        }
+    }
+
+    #[test]
+    fn non_audio_extensions_are_rejected() {
+        for ext in ["txt", "pdf", "jpg", "png", "zip", "docx", ""] {
+            assert!(!is_supported_extension(ext), "不应支持 .{ext}");
+        }
+        // 大小写不敏感（extension_of 已做小写化，这里直接验证判定函数）
+        assert!(is_supported_extension("mp4"));
+    }
 }

@@ -162,7 +162,12 @@ def probe_with_av(path: str) -> dict:
             channels = len(frame.layout.channels)
         if not samples or not rate:
             raise RuntimeError('文件没有可解码音频')
-        return {'format': source.format.name, 'duration_secs': samples / rate,
+        # 用归一化的格式名（_sniff），而不是 PyAV 的容器名。
+        # PyAV 对 mp4 会给出 "mov,mp4,m4a,3gp,3g2,mj2" 这种容器串，
+        # 写进 source_format 会污染数据、也会在界面上显示成一大段。
+        sniffed = _sniff(path)
+        return {'format': sniffed if sniffed != 'unknown' else source.format.name,
+                'duration_secs': samples / rate,
                 'sample_rate': rate, 'channels': channels}
 
 
