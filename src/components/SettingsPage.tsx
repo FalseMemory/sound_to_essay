@@ -264,6 +264,23 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
               </select>
             </SettingRow>
 
+            {/* 当前模型未下载时必须明说：否则用户点了转写才失败，且不知道原因。
+                默认值是 base，而很多人只下载了 tiny —— 没有这段提示就会卡在这里。 */}
+            {!models.some((model) => model.id === settings.whisperModel && model.installed) && (
+              <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                当前选择的「{settings.whisperModel}」尚未下载，<b>录音转写无法进行</b>。
+                请在下方「Whisper 模型库」下载它，或改选一个已下载的模型
+                {models.some((model) => model.installed) && (
+                  <>
+                    （已下载可用：
+                    {models.filter((model) => model.installed).map((model) => model.id).join('、')}
+                    ）
+                  </>
+                )}
+                。
+              </div>
+            )}
+
             <SettingRow label="模型存放位置" detail="每个模型保存为独立文件夹，建议选择空间充足的本地磁盘。">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="min-w-0 flex-1 truncate rounded-md border border-[var(--border)] bg-[var(--bg-tertiary)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]">
