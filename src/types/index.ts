@@ -43,6 +43,11 @@ export interface AppSettings {
   /** Root directory containing downloaded model subdirectories. */
   whisperModelDir?: string;
   whisperLanguage: 'zh' | 'en' | 'yue';
+  /**
+   * 自定义转写热词（人名 / 地名 / 专业术语），空格或换行分隔。
+   * 会与语言内置热词合并后传给 Whisper，用于减少专有名词的识别错误。
+   */
+  transcriptionHotwords?: string;
   llm: {
     polish: LLMConfig;
     generate: LLMConfig;

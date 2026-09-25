@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useCallback, useState } from 'react';
 import { useProjectStore } from '../stores/projectStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { normalizeHotwords } from '../utils/hotwords';
 import type { VoiceClip } from '../types';
 
 export interface TranscribeOutcome {
@@ -40,6 +41,7 @@ export function useClipTranscription() {
           modelSize: settings.whisperModel,
           language: settings.whisperLanguage,
           modelDir: settings.whisperModelDir || undefined,
+          hotwords: normalizeHotwords(settings.transcriptionHotwords),
         });
         const text = (result?.text ?? '').trim();
         if (!text) {

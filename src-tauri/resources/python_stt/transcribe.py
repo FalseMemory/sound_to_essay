@@ -1,6 +1,9 @@
 """
 Transcribe audio file using faster-whisper.
-Usage: python transcribe.py <audio_path> [model_size] [language]
+Usage: python transcribe.py <audio_path> [model_size] [language] [custom_hotwords]
+
+`custom_hotwords` 是用户自定义的热词（人名、地名、专业术语），空格分隔；
+会与语言内置热词合并后传给模型，用于减少专有名词的识别错误。
 
 Output: JSON with transcription results on stdout.
 """
@@ -21,7 +24,12 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-def transcribe(audio_path: str, model_size: str = "base", language: str = "zh"):
+def transcribe(
+    audio_path: str,
+    model_size: str = "base",
+    language: str = "zh",
+    custom_hotwords: str | None = None,
+):
     from faster_whisper import WhisperModel
 
     device = os.environ.get("WHISPER_DEVICE", "cpu")
@@ -46,6 +54,11 @@ def transcribe(audio_path: str, model_size: str = "base", language: str = "zh"):
     elif language == "yue":
         initial_prompt = "以下内容是粤语语音转写。请使用简体中文书面表达，不要使用繁体字。"
         hotwords = "粤语 广东话 简体中文"
+
+    # 用户自定义热词合并：内置词打底，用户词补充，减少人名/地名/术语的识别错误。
+    user_hotwords = (custom_hotwords or "").strip()
+    if user_hotwords:
+        hotwords = f"{hotwords} {user_hotwords}" if hotwords else user_hotwords
 
     segments, info = model.transcribe(
         audio_path,
@@ -149,19 +162,20 @@ def to_simplified(text: str) -> str:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(json.dumps({"error": "Usage: python transcribe.py <audio_path> [model_size] [language]"}, ensure_ascii=True))
+        print(json.dumps({"error": "Usage: python transcribe.py <audio_path> [model_size] [language] [custom_hotwords]"}, ensure_ascii=True))
         sys.exit(1)
 
     audio_path = sys.argv[1]
     model_size = sys.argv[2] if len(sys.argv) > 2 else "base"
     language = sys.argv[3] if len(sys.argv) > 3 else "zh"
+    custom_hotwords = sys.argv[4] if len(sys.argv) > 4 else None
 
     if not os.path.exists(audio_path):
         print(json.dumps({"error": f"Audio file not found: {audio_path}"}, ensure_ascii=True))
         sys.exit(1)
 
     try:
-        transcribe(audio_path, model_size, language)
+        transcribe(audio_path, model_size, language, custom_hotwords)
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)

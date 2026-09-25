@@ -5,6 +5,7 @@ const defaultSettings: AppSettings = {
   hotkey: 'Ctrl+Alt+R',
   whisperModel: 'base',
   whisperLanguage: 'zh',
+  transcriptionHotwords: '',
   llm: {
     polish: {
       baseUrl: 'http://localhost:11434',

@@ -13,10 +13,15 @@ pub struct STTResult {
     pub error: Option<String>,
 }
 
+/// 调用 `python_stt/transcribe.py` 转写音频。
+///
+/// `custom_hotwords` 为用户自定义热词（人名 / 地名 / 术语，空格分隔），
+/// 会与语言内置热词在 Python 侧合并；传 `None` 或空串表示不附加。
 pub fn transcribe(
     audio_path: &str,
     model_size: &str,
     language: &str,
+    custom_hotwords: Option<&str>,
     model_cache_dir: &Path,
     model_dir: &Path,
 ) -> Result<STTResult, String> {
@@ -35,6 +40,8 @@ pub fn transcribe(
         .arg(audio_path)
         .arg(model_size)
         .arg(language)
+        // 固定占用第 4 个 argv 位，空串由 Python 侧忽略，避免参数错位。
+        .arg(custom_hotwords.unwrap_or(""))
         .output()
         .map_err(|e| format!("无法启动 Python 进程: {}", e))?;
 

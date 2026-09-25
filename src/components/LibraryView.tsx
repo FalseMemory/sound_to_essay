@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard';
 import { useSettingsStore } from '../stores/settingsStore';
+import { normalizeHotwords } from '../utils/hotwords';
 import { ConfirmDialog } from './ConfirmDialog';
 import type { BackupOutcome, Chapter, ChapterWithDrafts, ImportCandidate, ImportOutcome, LibraryProject, MemoryDetail, MemorySummary, PackImportOutcome, PackPreview, RestoreOutcome, RestorePreview, TextVersion, TranscriptionTask } from '../types';
 
@@ -312,6 +313,7 @@ export function LibraryView() {
           modelSize: settings.whisperModel,
           language: settings.whisperLanguage,
           modelDir: settings.whisperModelDir || undefined,
+          hotwords: normalizeHotwords(settings.transcriptionHotwords),
         });
         await loadDetail(registered.memory.id);
         await loadTasks(projectId);
@@ -337,6 +339,7 @@ export function LibraryView() {
         modelSize: settings.whisperModel,
         language: settings.whisperLanguage,
         modelDir: settings.whisperModelDir || undefined,
+        hotwords: normalizeHotwords(settings.transcriptionHotwords),
       });
       await loadDetail(memoryId);
       await loadTasks(projectId);

@@ -127,6 +127,7 @@ async fn transcribe_audio(
     model_size: String,
     language: String,
     model_dir: Option<String>,
+    hotwords: Option<String>,
 ) -> Result<TranscribeResult, String> {
     log::info!("Transcribing: {} with model {} language {}", audio_path, model_size, language);
     let model_cache_dir = state.app_data_dir.join("models");
@@ -136,6 +137,7 @@ async fn transcribe_audio(
         &audio_path,
         &model_size,
         &language,
+        hotwords.as_deref(),
         &model_cache_dir,
         &selected_model_dir,
     )?;
@@ -178,6 +180,7 @@ async fn transcribe_memory(
     model_size: String,
     language: String,
     model_dir: Option<String>,
+    hotwords: Option<String>,
 ) -> Result<TranscribeResult, String> {
     let task = state
         .library
@@ -203,7 +206,7 @@ async fn transcribe_memory(
             return Err(error);
         }
     };
-    let recognized = match stt::transcribe(&task.audio_path, &model_size, &language, &model_cache_dir, &selected_model_dir) {
+    let recognized = match stt::transcribe(&task.audio_path, &model_size, &language, hotwords.as_deref(), &model_cache_dir, &selected_model_dir) {
         Ok(result) => result,
         Err(error) => {
             // 失败也要把状态落库，避免永久停留在"处理中"。
@@ -395,9 +398,18 @@ async fn generate_essay(
     config: LLMConfig,
 ) -> Result<String, String> {
     log::info!("Generating essay (style: {})", style_prompt);
+    // 去 AI 味：口述素材最怕被写成"AI 腔"的整齐文章，所以显式压制套话与对仗排比，
+    // 并要求尽量使用素材里的具体细节（时间、地点、动作、原话）。
     let system_prompt = "你是一位散文作家。根据用户的素材和风格要求，创作一篇优美的散文。\
         要求：标题自拟，要有场景感和画面感，素材中的细节尽量使用，不要凭空编造核心事实。\
-        只输出散文正文，不要添加任何说明文字。";
+        只输出散文正文，不要添加任何说明文字。\
+        语言上必须避免\"AI 腔\"：\
+        1. 不要使用\"首先/其次/再次/最后\"\"总而言之\"\"综上所述\"\"值得一提的是\"\"不难发现\"\"在这个…的时代\"等套话连接词；\
+        2. 不要堆砌排比句、四字成语和\"不仅…而且…\"\"既…又…\"式的对仗铺陈；\
+        3. 不要用空泛的抒情句收尾（如\"让…熠熠生辉\"\"刻在时光里\"\"值得永远铭记\"）；\
+        4. 多用素材中具体的人、事、物、动作和原话，少用抽象概括与总结性评论；\
+        5. 句长要错落，允许短句甚至不完整句，不要每段结构都一样；\
+        6. 保留叙述者自己的说话习惯与口语痕迹，那是真实感的来源。";
     let user_prompt = format!(
         "{}\n\n以下是用户的原始素材：\n```\n{}\n```\n\n请写一篇约 {} 字的散文。",
         style_prompt, text, word_count
@@ -788,7 +800,8 @@ async fn ai_generate_chapter_draft(
 1. 不虚构任何事实。
 2. 不擅自补充日期、地点、人物关系和对话。
 3. 无法确定的信息保留不确定性。
-4. 只输出章节正文，不要添加任何说明。", style, tier_directive);
+4. 避免\"AI 腔\"：不使用\"首先/其次/最后\"\"总而言之\"\"值得一提的是\"等套话连接词，不堆砌排比与四字成语，不用空泛抒情句收尾；多用素材中的具体细节，句长错落，保留叙述者的口语习惯。
+5. 只输出章节正文，不要添加任何说明。", style, tier_directive);
     let user_prompt = format!("请根据以下素材撰写章节草稿：
 
 {}", material);

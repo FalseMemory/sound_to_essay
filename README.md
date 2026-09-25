@@ -170,12 +170,14 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
   - `en` — 英语
   - `yue` — 粤语（内部映射为 `zh`，附带粤语 prompt）
 - 繁体输出自动转简体（opencc 优先，手动映射表兜底）
+- 支持自定义热词：在设置页填写常用人名、地名与专业术语，会与内置词表合并后传给模型，减少专有名词识别错误
 - VAD 过滤 + 幻觉静音阈值，减少无意义重复
 - 模型可选（tiny/base/small/medium），默认 `base`，默认 CPU int8 推理
 
 ### AI 整理与散文生成
 - **AI 整理**：将口语化转写文本自动分段、去冗余、修错字、理顺语序
 - **散文生成**：支持 8 种内置风格 + 自定义风格 prompt + 字数滑块
+- **去 AI 味约束**：散文生成与章节草稿的提示词内置反套话规则（禁用"首先/其次/总而言之"等连接词、不堆砌排比与四字成语、不用空泛抒情句收尾、多用素材中的具体细节），生成的文字更接近真人叙述
 - 两种 LLM 配置可独立设置（整理用小模型，生成用大模型）
 - 支持任何 OpenAI 兼容 API（Ollama / vLLM / SiliconFlow / OpenAI 等）
 - 后端请求超时 180 秒；前端 200 秒兜底超时 + 进度计时显示
@@ -388,6 +390,7 @@ URL 自动兼容三种格式：
 | 模型大小 | whisper 模型 | tiny / base / small / medium |
 | 推理设备 | 运行环境 | cpu（默认）/ cuda |
 | 计算精度 | 推理精度 | int8（默认）/ float16 / float32 |
+| 自定义热词 | 人名 / 地名 / 专业术语，空格、逗号或换行分隔 | 留空表示只用内置词表 |
 
 环境变量可通过系统设置覆盖：
 - `WHISPER_DEVICE=cuda` — 使用 GPU
@@ -582,7 +585,7 @@ transcribe_audio(audio_path, model_size, language)
 | `start_recording` | — | `void` | 开始录音 |
 | `stop_recording` | — | `{ audioPath, durationSecs }` | 停止录音，返回 WAV 路径和时长 |
 | `is_recording` | — | `boolean` | 当前是否在录音 |
-| `transcribe_audio` | `{ audioPath, modelSize, language, modelDir }` | `{ text, confidence }` | 使用已安装模型转写音频 |
+| `transcribe_audio` | `{ audioPath, modelSize, language, modelDir, hotwords? }` | `{ text, confidence }` | 使用已安装模型转写音频，`hotwords` 为自定义热词（可选） |
 | `get_default_whisper_model_dir` | — | `string` | 返回默认 Whisper 模型目录 |
 | `list_whisper_models` | `{ modelDir? }` | `WhisperModelInfo[]` | 列出本地已下载模型及完整性 |
 | `download_whisper_model` | `{ modelId, modelDir? }` | `void` | 下载指定模型（支持取消 / 续传） |

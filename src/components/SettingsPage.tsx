@@ -415,7 +415,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </Module>
 
           {/* ===== Group: 语音识别（偏好） ===== */}
-          <Module title="语音识别" icon={micIcon} description="选择默认识别语言与录音快捷键。">
+          <Module title="语音识别" icon={micIcon} description="选择默认识别语言、补充自定义热词，并设置录音快捷键。">
             <div>
               <div className="mb-2 text-sm font-medium text-[var(--text-primary)]">默认识别语言</div>
               <div className="grid grid-cols-3 gap-2">
@@ -439,6 +439,18 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                 })}
               </div>
             </div>
+            <SettingRow
+              label="自定义热词"
+              detail="填写常出现的人名、地名、专业术语，用空格、逗号或换行分隔。转写时会与内置词表合并，减少专有名词识别错误。"
+            >
+              <textarea
+                value={settings.transcriptionHotwords ?? ''}
+                onChange={(e) => setSettings({ transcriptionHotwords: e.target.value })}
+                rows={3}
+                placeholder="例如：陈家村 三叔 半导体 财报"
+                className="control w-full resize-y leading-relaxed"
+              />
+            </SettingRow>
             <SettingRow label="录音快捷键">
               <input
                 type="text"
