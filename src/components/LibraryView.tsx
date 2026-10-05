@@ -818,6 +818,7 @@ export function LibraryView() {
                   <div className="text-[11px] text-[var(--text-primary)]">
                     记录 {packPreview.recordCount} 条 · 音频 {packPreview.audioCount} 个
                     {packPreview.duplicates > 0 && ` · 重复 ${packPreview.duplicates}`}
+                    {packPreview.updates > 0 && ` · 将更新 ${packPreview.updates}`}
                     {packPreview.conflicts > 0 && ` · 冲突 ${packPreview.conflicts}`}
                     {packPreview.missingAudio > 0 && ` · 缺失音频 ${packPreview.missingAudio}`}
                   </div>

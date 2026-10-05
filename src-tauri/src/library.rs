@@ -716,32 +716,31 @@ impl Library {
         Ok(paths)
     }
 
-    /// B3：按素材包来源 ID 查找记忆，返回 (memory_id, source_revision)。
-    pub fn find_memory_by_source_id(&self, source_id: &str) -> Result<Option<(String, i64)>, String> {
-        self.initialize()?;
-        let connection = self.open()?;
+    /// B3：在指定项目内按素材包来源 ID 查找记忆，返回 (memory_id, 本地 revision)。
+    ///
+    /// 按**项目**限定，与 `pack_receipts` 的主键口径一致：同一个包导入到不同项目
+    /// 应各自独立，互不干扰。
+    pub(crate) fn find_memory_by_source_id(
+        connection: &Connection,
+        project_id: &str,
+        source_id: &str,
+    ) -> Result<Option<(String, i64)>, String> {
         let result = connection.query_row(
-            "SELECT id, COALESCE(source_revision,0) FROM memories WHERE source_id=?1 AND deleted_at IS NULL LIMIT 1",
-            [source_id],
+            "SELECT id, COALESCE(source_revision,0) FROM memories
+             WHERE project_id=?1 AND source_id=?2 AND deleted_at IS NULL LIMIT 1",
+            params![project_id, source_id],
             |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
         ).optional().map_err(|e| e.to_string())?;
         Ok(result)
     }
 
-    /// B3：登记记忆的素材包来源 ID 与修订标识（导入后补记，供后续去重/更新）。
-    pub fn set_memory_source(&self, memory_id: &str, source_id: &str, revision: i64) -> Result<(), String> {
-        self.initialize()?;
-        let connection = self.open()?;
-        connection.execute(
-            "UPDATE memories SET source_id=?2, source_revision=?3, updated_at=?4 WHERE id=?1",
-            params![memory_id, source_id, revision, now()],
-        ).map_err(|e| e.to_string())?;
-        Ok(())
-    }
-
-    /// B3：用素材包内容更新本地记忆（保留本地 ID，提升 source_revision）。
-    pub fn update_memory_from_pack(
-        &self,
+    /// B3：用素材包内容更新本地记忆（保留本地 ID，提升 `source_revision`）。
+    ///
+    /// 对应协议第 3 条「已存在且包内 revision 更大 → 判定为更新」。
+    /// 在**调用方的事务内**执行，避免与外层事务争抢 SQLite 写锁。
+    /// 正文写入新的 `raw_transcription` 版本并置为当前，**不覆盖历史版本**。
+    pub(crate) fn update_memory_from_pack(
+        transaction: &Transaction<'_>,
         memory_id: &str,
         revision: i64,
         title: &str,
@@ -751,18 +750,16 @@ impl Library {
         location: Option<&str>,
         notes: Option<&str>,
     ) -> Result<(), String> {
-        self.initialize()?;
-        let mut connection = self.open()?;
-        let transaction = connection.transaction().map_err(|e| e.to_string())?;
         transaction.execute(
             "UPDATE memories SET title=?2, event_date_text=?3, event_date_precision=?4, location=?5, notes=?6, source_revision=?7, updated_at=?8
              WHERE id=?1",
             params![memory_id, title, event_date_text, event_date_precision.unwrap_or("unknown"), location, notes, revision, now()],
         ).map_err(|e| e.to_string())?;
-        // 正文写入一个新的 raw_transcription 版本并置为当前（不覆盖历史）。
-        insert_text_version(&transaction, memory_id, None, body, "raw_transcription", Some("pack_import"), None, None, None, true)?;
-        refresh_search(&transaction, memory_id)?;
-        transaction.commit().map_err(|e| e.to_string())?;
+        // 与新建路径保持一致：正文为空时不产生空的版本记录。
+        if !body.is_empty() {
+            insert_text_version(transaction, memory_id, None, body, "raw_transcription", Some("pack_import"), None, None, None, true)?;
+        }
+        refresh_search(transaction, memory_id)?;
         Ok(())
     }
 

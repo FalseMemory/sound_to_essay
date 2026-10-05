@@ -134,7 +134,11 @@ export interface PackPreview {
   appVersion: string;
   recordCount: number;
   audioCount: number;
+  /** 同 recordId 且 revision 相同（将跳过）。 */
   duplicates: number;
+  /** 同 recordId 且包内 revision 更大（将更新原记录）。 */
+  updates: number;
+  /** 同 recordId 但本地更新或内容不同（将保留双方）。 */
   conflicts: number;
   missingAudio: number;
 }

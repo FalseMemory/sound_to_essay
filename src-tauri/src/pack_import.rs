@@ -99,7 +99,9 @@ pub struct PackPreview {
     pub audio_count: usize,
     /// 本地已存在同 recordId 且 revision 相同的记录数（将跳过）。
     pub duplicates: usize,
-    /// 本地已存在同 recordId 但 revision 不同的记录数（将更新或冲突）。
+    /// 本地已存在同 recordId、且**包内 revision 更大**的记录数（将更新原记录）。
+    pub updates: usize,
+    /// 本地已存在同 recordId、但**本地 revision 更大或内容不同**的记录数（将保留双方）。
     pub conflicts: usize,
     /// 记录引用了但包内缺失的音频数。
     pub missing_audio: usize,
@@ -280,6 +282,7 @@ pub fn preview_pack(library: &Library, project_id: &str, pack_path: &Path) -> Re
     let (records, missing_audio) = validate_pack(&parsed)?;
 
     let mut duplicates = 0usize;
+    let mut updates = 0usize;
     let mut conflicts = 0usize;
     library.initialize()?;
     let connection = library.open()?;
@@ -287,8 +290,14 @@ pub fn preview_pack(library: &Library, project_id: &str, pack_path: &Path) -> Re
     for record in &records {
         let digest = sha256(&serde_json::to_vec(record).map_err(|e| e.to_string())?);
         let duplicate: bool = has_receipts && connection.query_row("SELECT EXISTS(SELECT 1 FROM pack_receipts WHERE project_id=?1 AND source_id=?2 AND revision=?3 AND digest=?4)", rusqlite::params![project_id,record.record_id,record.revision,digest], |r| r.get(0)).map_err(|e| e.to_string())?;
-        let exists: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM memories WHERE project_id=?1 AND source_id=?2)", rusqlite::params![project_id,record.record_id], |r| r.get(0)).map_err(|e| e.to_string())?;
-        if duplicate { duplicates += 1; } else if exists { conflicts += 1; }
+        if duplicate { duplicates += 1; continue; }
+        // 与 import_pack 保持**同一口径**：包内 revision 更大 → 更新；否则 → 冲突保留双方。
+        // 两边若不一致，预览就会与实际导入结果对不上，用户在确认前会被误导。
+        match Library::find_memory_by_source_id(&connection, project_id, &record.record_id)? {
+            Some((_, local_revision)) if record.revision > local_revision => updates += 1,
+            Some(_) => conflicts += 1,
+            None => {}
+        }
     }
 
     Ok(PackPreview {
@@ -299,6 +308,7 @@ pub fn preview_pack(library: &Library, project_id: &str, pack_path: &Path) -> Re
         record_count: records.len(),
         audio_count: parsed.manifest.audio.len(),
         duplicates,
+        updates,
         conflicts,
         missing_audio,
     })
@@ -333,9 +343,33 @@ pub fn import_pack(
             "SELECT EXISTS(SELECT 1 FROM pack_receipts WHERE project_id=?1 AND source_id=?2 AND revision=?3 AND digest=?4)",
             rusqlite::params![project_id, record.record_id, record.revision, digest], |r| r.get(0)).map_err(|e| e.to_string())?;
         if duplicate { outcome.skipped_duplicates += 1; continue; }
-        let conflict: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM memories WHERE project_id=?1 AND source_id=?2)",
-            rusqlite::params![project_id, record.record_id], |r| r.get(0)).map_err(|e| e.to_string())?;
+
+        // 协议第 1 条后半：本地已有同 recordId 且**包内 revision 更大** → 更新原记录
+        // （保留本地 ID，正文写成新的 raw_transcription 版本，历史版本不动）。
+        // 其余情况——本地 revision 更大、或 revision 相同但内容不同——落到下面的
+        // 冲突分支，保留双方。音频不随之变动：同一 recordId 的音频不会在手机端被
+        // 替换（换音频在手机端是新建记录），所以这里只同步文字。
+        let existing = Library::find_memory_by_source_id(&tx, project_id, &record.record_id)?;
+        if let Some((memory_id, local_revision)) = &existing {
+            if record.revision > *local_revision {
+                Library::update_memory_from_pack(
+                    &tx,
+                    memory_id,
+                    record.revision,
+                    &record.title,
+                    &record.body,
+                    record.event_date_text.as_deref(),
+                    record.event_date_precision.as_deref(),
+                    record.location.as_deref(),
+                    record.notes.as_deref(),
+                )?;
+                tx.execute("INSERT INTO pack_receipts(project_id,source_id,revision,digest,memory_id) VALUES(?1,?2,?3,?4,?5)",
+                    rusqlite::params![project_id, record.record_id, record.revision, digest, memory_id]).map_err(|e| e.to_string())?;
+                outcome.updated += 1;
+                continue;
+            }
+        }
+        let conflict = existing.is_some();
         let id = uuid::Uuid::new_v4().to_string();
         let title = if conflict { format!("{}（冲突副本）", record.title) } else { record.title.clone() };
         tx.execute("INSERT INTO memories(id,project_id,title,audio_recorded_at,event_date_text,event_date_precision,location,notes,status,created_at,updated_at,source_id,source_revision)
@@ -404,35 +438,10 @@ mod tests {
         assert_eq!(again.skipped_duplicates, 3);
         let preview = preview_pack(&library, &project.id, &path).unwrap();
         assert_eq!(preview.duplicates, 3);
-        let mut changed = parse_pack(&path).unwrap();
-        let mut records = parse_records(&changed.records_json).unwrap();
-        records[0].body = "changed at same revision".into();
-        let bytes = serde_json::to_vec(&records).unwrap();
-        let mut manifest: serde_json::Value = serde_json::from_slice(&{
-            let raw = fs::read(&path).unwrap();
-            let size = u32::from_le_bytes(raw[8..12].try_into().unwrap()) as usize;
-            raw[44..44+size].to_vec()
-        }).unwrap();
-        manifest["records"]["size"] = bytes.len().into();
-        manifest["records"]["sha256"] = sha256(&bytes).into();
-        changed.files.iter_mut().find(|(n,_)| n == RECORDS_NAME).unwrap().1 = bytes;
         let changed_path = root.join("changed.svpack");
-        let mut output = fs::File::create(&changed_path).unwrap();
-        use std::io::Write;
-        fn hash_bytes(data: &[u8]) -> Vec<u8> { let h = sha256(data); (0..64).step_by(2).map(|i| u8::from_str_radix(&h[i..i+2],16).unwrap()).collect() }
-        let manifest = serde_json::to_vec(&manifest).unwrap();
-        output.write_all(PACK_MAGIC).unwrap();
-        output.write_all(&(manifest.len() as u32).to_le_bytes()).unwrap();
-        output.write_all(&hash_bytes(&manifest)).unwrap();
-        output.write_all(&manifest).unwrap();
-        for (name,data) in &changed.files {
-            output.write_all(&(name.len() as u32).to_le_bytes()).unwrap();
-            output.write_all(name.as_bytes()).unwrap();
-            output.write_all(&(data.len() as u64).to_le_bytes()).unwrap();
-            output.write_all(&hash_bytes(data)).unwrap();
-            output.write_all(data).unwrap();
-        }
-        drop(output);
+        rewrite_pack(&path, &changed_path, |records| {
+            records[0].body = "changed at same revision".into();
+        });
         assert_eq!(preview_pack(&library, &project.id, &changed_path).unwrap().conflicts, 1);
         assert_eq!(import_pack(&library, &root, &project.id, &changed_path).unwrap().conflicts_kept_both, 1);
         assert_eq!(import_pack(&library, &root, &project.id, &changed_path).unwrap().skipped_duplicates, 3);
@@ -441,7 +450,11 @@ mod tests {
         assert_eq!(import_pack(&library, &root, &second.id, &path).unwrap().imported, 3);
         let connection = library.open().unwrap();
         let tasks: i64 = connection.query_row("SELECT COUNT(*) FROM transcription_tasks", [], |r| r.get(0)).unwrap();
-        assert_eq!(tasks, 4 + records[0].audio.len() as i64);
+        let first_record_audio = parse_records(&parse_pack(&path).unwrap().records_json).unwrap()
+            [0]
+        .audio
+        .len() as i64;
+        assert_eq!(tasks, 4 + first_record_audio);
         // A constraint failure after file staging must roll back all records and receipts.
         connection.execute_batch("CREATE TRIGGER reject_import BEFORE INSERT ON memories BEGIN SELECT RAISE(ABORT,'test'); END;").unwrap();
         let third = library.create_project("three").unwrap();
@@ -449,6 +462,113 @@ mod tests {
         assert!(library.list_memories(Some(&third.id), false).unwrap().is_empty());
         drop(connection);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// 协议第 1 条后半：本地已有同 recordId，且**包内 revision 更大** → 更新原记录。
+    ///
+    /// 这条路径曾经缺失（`PackImportOutcome.updated` 恒为 0），重写导入逻辑时
+    /// 只保留了「追加」与「冲突保留双方」。此测试锁定它，防止再次丢失。
+    #[test]
+    fn higher_revision_updates_existing_memory_instead_of_duplicating() {
+        let root = std::env::temp_dir().join(format!("sv-update-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let library = Library::new(root.join("test.sqlite3"));
+        let project = library.create_project("one").unwrap();
+        let path = mobile_sample();
+        assert!(path.is_file(), "interop fixture must exist");
+
+        assert_eq!(import_pack(&library, &root, &project.id, &path).unwrap().imported, 3);
+        let before = library.list_memories(Some(&project.id), false).unwrap().len();
+        assert_eq!(before, 3);
+
+        // 模拟「手机端改了第一条后重新导出」：revision +1，正文变化。
+        let target_id = parse_records(&parse_pack(&path).unwrap().records_json).unwrap()[0]
+            .record_id
+            .clone();
+        let bumped = root.join("bumped.svpack");
+        rewrite_pack(&path, &bumped, |records| {
+            records[0].revision += 1;
+            records[0].body = "正文在手机端被修改过".into();
+        });
+
+        // 预览必须与导入同一口径：这是更新，不是冲突。
+        let preview = preview_pack(&library, &project.id, &bumped).unwrap();
+        assert_eq!(preview.updates, 1, "应识别为更新");
+        assert_eq!(preview.conflicts, 0, "不应误报冲突");
+        assert_eq!(preview.duplicates, 2, "其余两条 revision 未变，应判为重复");
+
+        let outcome = import_pack(&library, &root, &project.id, &bumped).unwrap();
+        assert_eq!(outcome.updated, 1);
+        assert_eq!(outcome.imported, 0, "更新不得新建记录");
+        assert_eq!(outcome.conflicts_kept_both, 0, "更新不得产生冲突副本");
+
+        // 核心断言：记忆条数不变（没有多出一条「冲突副本」）。
+        assert_eq!(
+            library.list_memories(Some(&project.id), false).unwrap().len(),
+            before
+        );
+
+        let connection = library.open().unwrap();
+        let revision: i64 = connection
+            .query_row(
+                "SELECT source_revision FROM memories WHERE source_id=?1",
+                [&target_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(revision, 2, "source_revision 应提升到包内版本");
+
+        // 正文写成新版本，历史版本保留（不是覆盖）。
+        let version_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM text_versions tv JOIN memories m ON m.id=tv.memory_id WHERE m.source_id=?1",
+                [&target_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(version_count >= 2, "更新应追加新版本而非覆盖，实际 {version_count}");
+
+        drop(connection);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// 读入样例包，对记录做一次修改后写出一个新包（同步更新清单里的校验值）。
+    fn rewrite_pack(source: &Path, dest: &Path, transform: impl FnOnce(&mut Vec<PackRecord>)) {
+        let mut changed = parse_pack(source).unwrap();
+        let mut records = parse_records(&changed.records_json).unwrap();
+        transform(&mut records);
+        let bytes = serde_json::to_vec(&records).unwrap();
+        let mut manifest: serde_json::Value = serde_json::from_slice(&{
+            let raw = fs::read(source).unwrap();
+            let size = u32::from_le_bytes(raw[8..12].try_into().unwrap()) as usize;
+            raw[44..44 + size].to_vec()
+        })
+        .unwrap();
+        manifest["records"]["size"] = bytes.len().into();
+        manifest["records"]["sha256"] = sha256(&bytes).into();
+        changed.files.iter_mut().find(|(n, _)| n == RECORDS_NAME).unwrap().1 = bytes;
+
+        let mut output = fs::File::create(dest).unwrap();
+        use std::io::Write;
+        fn hash_bytes(data: &[u8]) -> Vec<u8> {
+            let h = sha256(data);
+            (0..64)
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&h[i..i + 2], 16).unwrap())
+                .collect()
+        }
+        let manifest = serde_json::to_vec(&manifest).unwrap();
+        output.write_all(PACK_MAGIC).unwrap();
+        output.write_all(&(manifest.len() as u32).to_le_bytes()).unwrap();
+        output.write_all(&hash_bytes(&manifest)).unwrap();
+        output.write_all(&manifest).unwrap();
+        for (name, data) in &changed.files {
+            output.write_all(&(name.len() as u32).to_le_bytes()).unwrap();
+            output.write_all(name.as_bytes()).unwrap();
+            output.write_all(&(data.len() as u64).to_le_bytes()).unwrap();
+            output.write_all(&hash_bytes(data)).unwrap();
+            output.write_all(data).unwrap();
+        }
     }
 
     /// 手机端样例包必须先由 `npx tsx tools/verify_mobile_pack.ts` 生成。
