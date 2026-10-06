@@ -6,10 +6,23 @@
  *
  * 用法：npx tsx tools/verify_unsaved_guard.ts
  */
-import { useUnsavedStore } from '../src/stores/unsavedStore';
+import { shouldInterceptLeave, useUnsavedStore } from '../src/stores/unsavedStore';
+import type { LeaveInterceptInput } from '../src/stores/unsavedStore';
 
 const store = useUnsavedStore;
 let failures = 0;
+
+/** shouldInterceptLeave 的默认情形：有改动、点了编辑区外的按钮。 */
+function interceptCase(patch: Partial<LeaveInterceptInput> = {}): LeaveInterceptInput {
+  return {
+    dirty: true,
+    dialogOpen: false,
+    eventType: 'click',
+    insideEditor: false,
+    onInteractive: true,
+    ...patch,
+  };
+}
 
 function check(label: string, actual: unknown, expected: unknown) {
   const ok = JSON.stringify(actual) === JSON.stringify(expected);
@@ -98,6 +111,42 @@ store.getState().requestLeave(() => { ran += 1; });
 await store.getState().resolve('save');
 check('不执行离开（无法确认已保存）', ran, 0);
 check('dirty 保持为 true', store.getState().dirty, true);
+
+console.log('\n=== 9. 拦截判据：对话框打开时必须放行（否则按钮点不动）===');
+// 2026-10-06 实测踩到：对话框自己的三个按钮也是编辑区外的 <button>，
+// 被守卫一并拦下 → 用户点了完全没反应。这条断言锁住该行为。
+check('对话框打开时点击按钮 → 放行', shouldInterceptLeave(interceptCase({ dialogOpen: true })), false);
+check('对话框关闭时点击按钮 → 拦截', shouldInterceptLeave(interceptCase({ dialogOpen: false })), true);
+
+console.log('\n=== 10. 拦截判据：其余边界 ===');
+check('无改动 → 放行', shouldInterceptLeave(interceptCase({ dirty: false })), false);
+check('编辑区内部的操作 → 放行', shouldInterceptLeave(interceptCase({ insideEditor: true })), false);
+check('非交互元素（如段落文字）→ 放行', shouldInterceptLeave(interceptCase({ onInteractive: false })), false);
+check('键盘 Enter 激活按钮 → 拦截', shouldInterceptLeave(interceptCase({ eventType: 'keydown', key: 'Enter' })), true);
+check('键盘空格激活按钮 → 拦截', shouldInterceptLeave(interceptCase({ eventType: 'keydown', key: ' ' })), true);
+check('键盘普通字母 → 放行', shouldInterceptLeave(interceptCase({ eventType: 'keydown', key: 'a' })), false);
+check('Ctrl+S → 放行（保存快捷键不能被拦）', shouldInterceptLeave(interceptCase({ eventType: 'keydown', key: 's', ctrlKey: true })), false);
+check('Cmd+S → 放行', shouldInterceptLeave(interceptCase({ eventType: 'keydown', key: 's', metaKey: true })), false);
+check('Shift+Enter → 放行（带修饰键）', shouldInterceptLeave(interceptCase({ eventType: 'keydown', key: 'Enter', altKey: true })), false);
+
+console.log('\n=== 11. 回归：拦下 → 放弃 → 重放，且不会二次拦截 ===');
+reset();
+ran = 0;
+store.getState().setDirty(true);
+{
+  const replayAction = () => { ran += 1; };
+  // 模拟 hook：先判要不要拦，再请求离开
+  const willIntercept = shouldInterceptLeave(interceptCase({ dialogOpen: store.getState().dialogOpen }));
+  check('首次点击被拦', willIntercept, true);
+  store.getState().requestLeave(replayAction);
+  await store.getState().resolve('discard');
+  check('重放执行了一次', ran, 1);
+  // 重放时 dirty 已清空 → 不会再被拦
+  const secondIntercept = shouldInterceptLeave(
+    interceptCase({ dirty: store.getState().dirty, dialogOpen: store.getState().dialogOpen })
+  );
+  check('重放不会再被拦（否则死循环）', secondIntercept, false);
+}
 
 console.log('');
 if (failures === 0) {

@@ -17,6 +17,39 @@ import { create } from 'zustand';
 
 export type UnsavedChoice = 'cancel' | 'discard' | 'save';
 
+/** 判断一次点击 / 按键是否应该被未保存守卫拦下。纯函数，便于直接测试。 */
+export interface LeaveInterceptInput {
+  /** 当前是否有未保存改动。 */
+  dirty: boolean;
+  /** 确认对话框是否正开着——**必须放行**，否则对话框自己的按钮会被自己拦下。 */
+  dialogOpen: boolean;
+  eventType: 'click' | 'keydown';
+  /** keydown 时的按键名。 */
+  key?: string;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  /** 事件目标是否位于编辑区内（编辑区内部的操作一律放行）。 */
+  insideEditor: boolean;
+  /** 事件目标是否是可交互元素（按钮 / 链接 / 表单控件）。 */
+  onInteractive: boolean;
+}
+
+export function shouldInterceptLeave(input: LeaveInterceptInput): boolean {
+  if (!input.dirty) return false;
+  // 对话框已经打开时，用户此刻的操作就是在回答对话框本身，不能再拦。
+  // （2026-10-06 实测踩到：漏了这个条件，三个按钮全部点不动。）
+  if (input.dialogOpen) return false;
+  if (!input.onInteractive) return false;
+  if (input.insideEditor) return false;
+  if (input.eventType === 'keydown') {
+    // 只拦「会激活按钮」的按键，且不带修饰键（Ctrl+S 等必须放行）。
+    if (!['Enter', ' '].includes(input.key ?? '')) return false;
+    if (input.ctrlKey || input.metaKey || input.altKey) return false;
+  }
+  return true;
+}
+
 interface UnsavedState {
   /** 当前是否存在未保存的改动。 */
   dirty: boolean;
