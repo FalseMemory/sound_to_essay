@@ -925,6 +925,27 @@ export function LibraryView() {
               </div>
             )}
           </div>
+
+          {/* 导出整本：E3 第 8 步的核心动作，同样**常驻**。
+              它原本和「+ 新建」一起待在 browseMode === 'chapters' 分支里，
+              用户直到导出测试时才「发现这个按钮」（2026-10-06）——
+              这是继导入入口、备份入口之后**同一类问题的第三次**。
+              低频但关键的操作一律常驻，不依赖用户恰好切对模式。 */}
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-[var(--text-secondary)]">导出</div>
+              <button
+                onClick={() => void exportBook()}
+                title="导出整本回忆录为单个 Markdown，各章节保留来源记忆清单"
+                className="text-[10px] font-medium text-[var(--accent)] hover:underline"
+              >
+                导出整本 Markdown…
+              </button>
+            </div>
+            <div className="mt-1 text-[10px] text-[var(--text-secondary)]">
+              合订所有章节，保留来源记忆清单便于溯源
+            </div>
+          </div>
         </div>
 
         {/* Browse mode switcher - modern segmented control */}
@@ -1018,7 +1039,6 @@ export function LibraryView() {
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs font-semibold text-[var(--text-secondary)]">章节列表</div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => void exportBook()} title="导出整本回忆录为单个 Markdown" className="text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] hover:underline">导出整本</button>
                   <button onClick={() => void createChapter()} className="text-[10px] font-medium text-[var(--accent)] hover:underline">+ 新建</button>
                 </div>
               </div>
