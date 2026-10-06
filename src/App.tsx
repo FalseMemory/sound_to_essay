@@ -10,6 +10,7 @@ import { EssayView } from './components/EssayView';
 import { SettingsPage } from './components/SettingsPage';
 import { LibraryView } from './components/LibraryView';
 import { StyleSelector } from './components/StyleSelector';
+import { UnsavedChangesDialog } from './components/UnsavedChangesDialog';
 import { useClipTranscription } from './hooks/useClipTranscription';
 import { usePolish } from './hooks/usePolish';
 import type { PageView, ProjectData, ProjectListItem, VoiceClip } from './types';
@@ -154,6 +155,9 @@ function App() {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-[var(--bg-primary)]">
+      {/* 未保存改动的离开确认：顶层挂载，覆盖顶部导航与编辑区内部的切换。
+          拦截本身由 useUnsavedGuard 的事件委托完成，这里只负责渲染对话框。 */}
+      <UnsavedChangesDialog />
       {/* ===== Top bar ===== */}
       <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-[var(--border)] bg-[var(--bg-secondary)] px-6">
         <div className="flex min-w-0 items-center gap-6">

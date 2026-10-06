@@ -1,6 +1,7 @@
 ﻿import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard';
+import { useUnsavedStore } from '../stores/unsavedStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { normalizeHotwords } from '../utils/hotwords';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -354,31 +355,28 @@ export function LibraryView() {
 
   const taskForMemory = (memoryId: string) => tasks.find((task) => task.memoryId === memoryId && task.status !== 'success') ?? tasks.find((task) => task.memoryId === memoryId);
 
-  // A3：未保存保护。正文草稿或元数据被改动但尚未保存时，关闭/刷新页面要给提示。
+  // A3：未保存保护。正文草稿或元数据被改动但尚未保存时，离开编辑区要给提示。
+  //
+  // 注意：对比必须**覆盖全部可编辑字段**。此前漏了「录音时间」与「时间精度」，
+  // 于是改这两项时 hasUnsavedChanges 恒为 false，守卫根本没生效、切走就丢
+  // （2026-10-06 用户实测踩到）。新增字段时务必同步这里。
   const currentVersionContent = detail?.textVersions.find((v) => v.isCurrent)?.content ?? '';
   const metadataDirty = !!detail && !!originalSnapshot && (
     detail.title !== originalSnapshot.title
+    || (detail.audioRecordedAt ?? '') !== (originalSnapshot.audioRecordedAt ?? '')
+    || (detail.eventDateText ?? '') !== (originalSnapshot.eventDateText ?? '')
+    || (detail.eventDatePrecision ?? '') !== (originalSnapshot.eventDatePrecision ?? '')
     || (detail.location ?? '') !== (originalSnapshot.location ?? '')
     || (detail.notes ?? '') !== (originalSnapshot.notes ?? '')
-    || detail.eventDateText !== originalSnapshot.eventDateText
     || detail.status !== originalSnapshot.status
-    || detail.tags.join('') !== originalSnapshot.tags.join('')
-    || detail.people.join('') !== originalSnapshot.people.join('')
+    || detail.tags.join('\u0000') !== originalSnapshot.tags.join('\u0000')
+    || detail.people.join('\u0000') !== originalSnapshot.people.join('\u0000')
   );
-  const hasUnsavedChanges = !!detail && (
-    textDraft !== currentVersionContent || metadataDirty
-  );
-  useUnsavedGuard(hasUnsavedChanges, '[data-memory-editor]');
+  const textDirty = !!detail && textDraft !== currentVersionContent;
+  const hasUnsavedChanges = !!detail && (textDirty || metadataDirty);
 
-  useEffect(() => {
-    if (!hasUnsavedChanges) return;
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [hasUnsavedChanges]);
+  // 脏状态由 hook 上报给全局守卫（切页面时据此拦截）。
+  useUnsavedGuard(hasUnsavedChanges, '[data-memory-editor]');
 
   // --- A3: backup & restore ---
 
@@ -549,8 +547,9 @@ export function LibraryView() {
     await loadDetail(memoryId);
   };
 
-  const saveMetadata = async () => {
-    if (!detail) return;
+  /** 保存元数据。返回是否成功——「保存并离开」要靠它决定是否放行。 */
+  const saveMetadata = async (): Promise<boolean> => {
+    if (!detail) return true;
     try {
       await invoke('update_memory_metadata', { input: {
         id: detail.id,
@@ -568,24 +567,67 @@ export function LibraryView() {
       await loadMemories(projectId);
       await loadDetail(detail.id);
       setNotice('记忆元数据已保存。');
-    } catch (error) { setNotice(`保存失败：${String(error)}`); }
+      return true;
+    } catch (error) {
+      setNotice(`保存失败：${String(error)}`);
+      return false;
+    }
   };
 
-  const saveWorkingText = async () => {
-    if (!detail) return;
+  /** 保存工作文本为新版本。返回是否成功。 */
+  const saveWorkingText = async (): Promise<boolean> => {
+    if (!detail) return true;
     const current = detail.textVersions.find((version) => version.isCurrent);
-    if (textDraft === (current?.content ?? '')) return;
-    await invoke<TextVersion>('create_text_version', {
-      memoryId: detail.id,
-      content: textDraft,
-      versionType: 'user_edit',
-      processingType: 'manual_edit',
-      parentVersionId: current?.id,
-    });
-    await loadDetail(detail.id);
-    await loadMemories(projectId);
-    setNotice('已保存为新的人工校订版本；原始转写未被修改。');
+    if (textDraft === (current?.content ?? '')) return true;
+    try {
+      await invoke<TextVersion>('create_text_version', {
+        memoryId: detail.id,
+        content: textDraft,
+        versionType: 'user_edit',
+        processingType: 'manual_edit',
+        parentVersionId: current?.id,
+      });
+      await loadDetail(detail.id);
+      await loadMemories(projectId);
+      setNotice('已保存为新的人工校订版本；原始转写未被修改。');
+      return true;
+    } catch (error) {
+      setNotice(`保存失败：${String(error)}`);
+      return false;
+    }
   };
+
+  /** 保存当前编辑区所有未保存的改动。返回是否全部成功（供「保存并离开」判断）。 */
+  const saveAllUnsaved = async (): Promise<boolean> => {
+    if (!detail) return true;
+    if (metadataDirty && !(await saveMetadata())) return false;
+    if (textDirty && !(await saveWorkingText())) return false;
+    return true;
+  };
+
+  // 把保存能力交给全局守卫，供「保存并离开」调用。
+  // 用 ref 持有最新函数，避免每次渲染重建导致反复注册；ref 只能在
+  // effect 里更新（render 期间写 ref 会破坏 React 的渲染约定）。
+  const saveAllRef = useRef(saveAllUnsaved);
+  useEffect(() => {
+    saveAllRef.current = saveAllUnsaved;
+  });
+  const registerSaveHandler = useUnsavedStore((s) => s.registerSaveHandler);
+  useEffect(() => {
+    registerSaveHandler(() => saveAllRef.current());
+    return () => registerSaveHandler(null);
+  }, [registerSaveHandler]);
+
+  // Ctrl+S / Cmd+S：保存当前编辑区。必须阻止浏览器默认的「保存网页」。
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
+      event.preventDefault();
+      void saveAllRef.current();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const restoreVersion = async (versionId: string) => {
     if (!detail) return;

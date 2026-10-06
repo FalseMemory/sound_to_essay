@@ -6,8 +6,16 @@ interface ConfirmDialogProps {
   message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  /**
+   * 可选的第三个选项，用在「既不是确认、也不是取消」的中间动作上。
+   * 例：未保存提示里的「放弃修改」——取消=继续编辑，确认=保存并离开。
+   * 不传时保持原有的两按钮形态。
+   */
+  secondaryLabel?: string;
   danger?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
+  onSecondary?: () => void;
   onCancel: () => void;
 }
 
@@ -17,8 +25,11 @@ export function ConfirmDialog({
   message,
   confirmLabel = '确认',
   cancelLabel = '取消',
+  secondaryLabel,
   danger = false,
+  confirmDisabled = false,
   onConfirm,
+  onSecondary,
   onCancel,
 }: ConfirmDialogProps) {
   if (!open) return null;
@@ -42,9 +53,18 @@ export function ConfirmDialog({
           >
             {cancelLabel}
           </button>
+          {secondaryLabel && (
+            <button
+              onClick={onSecondary}
+              className="rounded-lg border border-[var(--error)]/40 px-4 py-2 text-sm font-medium text-[var(--error)] transition hover:bg-[var(--error)]/10"
+            >
+              {secondaryLabel}
+            </button>
+          )}
           <button
             onClick={onConfirm}
-            className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition ${
+            disabled={confirmDisabled}
+            className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 ${
               danger
                 ? 'bg-[var(--error)] hover:opacity-90'
                 : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'
