@@ -1106,11 +1106,16 @@ fn restore_full_backup(
     archive_path: String,
     current_db_backup_path: String,
 ) -> Result<backup::RestoreOutcome, String> {
+    // 「后悔药」必须和资料库放在一起（详见 resolve_safety_path 的说明）。
+    let safety_path = backup::resolve_safety_path(
+        &PathBuf::from(&current_db_backup_path),
+        state.library.db_path(),
+    );
     backup::restore_backup(
         &state.library,
         &state.audio_dir,
         PathBuf::from(archive_path).as_path(),
-        PathBuf::from(current_db_backup_path).as_path(),
+        &safety_path,
     )
 }
 

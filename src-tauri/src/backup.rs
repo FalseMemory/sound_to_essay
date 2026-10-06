@@ -32,6 +32,41 @@ const AUDIO_DIR: &str = "audio";
 #[cfg(test)]
 mod regression_tests {
     use super::*;
+
+    /// 「后悔药」必须落在资料库所在目录。
+    ///
+    /// 2026-10-06 实测：前端传相对文件名，按进程工作目录解析后落到了
+    /// `src-tauri/`（源码树），而那个文件里是**真实口述数据**——
+    /// 一次 `git add -A` 就可能把它推进公开仓库。
+    #[test]
+    fn safety_snapshot_lands_beside_the_library_not_in_cwd() {
+        // 用 temp_dir 拼路径，保证在 Windows / Unix 上都成立
+        // （Windows 下 "/home/..." 不算绝对路径，写死 Unix 路径会测错）。
+        let library_dir = std::env::temp_dir().join("sv-safety-lib");
+        let db = library_dir.join("oral_history.sqlite3");
+
+        let resolved = resolve_safety_path(Path::new("pre-restore-123.sqlite3"), &db);
+        assert_eq!(
+            resolved,
+            library_dir.join("pre-restore-123.sqlite3"),
+            "相对路径必须解析到数据库同目录"
+        );
+        // 关键断言：不能停在裸文件名上（那意味着落到了进程工作目录）。
+        assert_eq!(
+            resolved.parent(),
+            Some(library_dir.as_path()),
+            "解析结果必须与资料库同目录，而不是 cwd"
+        );
+
+        // 绝对路径原样保留（用户显式指定位置时应尊重）。
+        let explicit_target = std::env::temp_dir().join("my-snapshot.sqlite3");
+        assert_eq!(resolve_safety_path(&explicit_target, &db), explicit_target);
+
+        // 数据库路径没有父目录时不 panic，退回原值。
+        let fallback = resolve_safety_path(Path::new("bare.sqlite3"), Path::new("db.sqlite3"));
+        assert_eq!(fallback, Path::new("bare.sqlite3"));
+    }
+
     #[test]
     fn backup_roundtrip_relocates_audio_and_rejects_truncated_tail() {
         let root = std::env::temp_dir().join(format!("sv-backup-test-{}", uuid::Uuid::new_v4()));
@@ -468,6 +503,21 @@ pub fn validate_backup(archive_path: &Path, audio_dir: &Path) -> Result<RestoreP
         database_bytes: manifest.database.size,
         audio_missing_locally: missing_locally,
     })
+}
+
+/// 把「后悔药」路径解析到**资料库所在目录**。
+///
+/// 调用方（前端）传的是相对文件名。若按进程工作目录解析，开发时会落到
+/// `src-tauri/`、打包后位置更不可预期——那里是源码树，既可能把**真实口述数据**
+/// 混进版本库，用户也找不到这个快照（2026-10-06 实际发生）。绝对路径原样保留。
+pub fn resolve_safety_path(requested: &Path, db_path: &Path) -> PathBuf {
+    if requested.is_absolute() {
+        return requested.to_path_buf();
+    }
+    match db_path.parent() {
+        Some(dir) => dir.join(requested),
+        None => requested.to_path_buf(),
+    }
 }
 
 /// 恢复备份：替换当前数据库与音频。调用前必须先 `validate_backup` 并让用户确认。
