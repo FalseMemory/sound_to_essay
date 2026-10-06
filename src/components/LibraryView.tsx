@@ -899,6 +899,32 @@ export function LibraryView() {
               ))}
             </div>
           )}
+
+          {/* A3：备份与恢复入口。**常驻在此，且不受 projectId 约束**——它针对整库，
+              与当前选中哪个项目无关。此前它被写在 browseMode === 'chapters' 分支里，
+              只有切到「章节」模式才看得见，用户根本找不到（2026-10-06 实测）。
+              与上面导入入口的修法一致：低频但关键的操作要常驻、要能被找到。 */}
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-[var(--text-secondary)]">备份与恢复</div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => void createBackup()} className="text-[10px] font-medium text-[var(--accent)] hover:underline">创建备份</button>
+                <button onClick={() => void chooseRestoreFile()} className="text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] hover:underline">恢复…</button>
+              </div>
+            </div>
+            {backupNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{backupNotice}</div>}
+            {restorePreview && (
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
+                <div className="text-[11px] text-[var(--text-primary)]">
+                  备份时间：{formatDate(restorePreview.createdAt)} · 音频 {restorePreview.audioCount} 个
+                  {restorePreview.audioMissingLocally > 0 && ` · 本地缺失 ${restorePreview.audioMissingLocally} 个`}
+                </div>
+                <button onClick={() => requestRestore()} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[var(--accent-hover)] transition">
+                  恢复此备份
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Browse mode switcher - modern segmented control */}
@@ -997,28 +1023,6 @@ export function LibraryView() {
                 </div>
               </div>
 
-              {/* A3：备份与恢复入口 */}
-              <div className="mb-3 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold text-[var(--text-secondary)]">备份与恢复</div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => void createBackup()} className="text-[10px] font-medium text-[var(--accent)] hover:underline">创建备份</button>
-                    <button onClick={() => void chooseRestoreFile()} className="text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] hover:underline">恢复…</button>
-                  </div>
-                </div>
-                {backupNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{backupNotice}</div>}
-                {restorePreview && (
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
-                    <div className="text-[11px] text-[var(--text-primary)]">
-                      备份时间：{formatDate(restorePreview.createdAt)} · 音频 {restorePreview.audioCount} 个
-                      {restorePreview.audioMissingLocally > 0 && ` · 本地缺失 ${restorePreview.audioMissingLocally} 个`}
-                    </div>
-                    <button onClick={() => requestRestore()} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[var(--accent-hover)] transition">
-                      恢复此备份
-                    </button>
-                  </div>
-                )}
-              </div>
               {chapters.map((chapter) => (
                 <button key={chapter.id} onClick={() => { setSelectedChapterId(chapter.id); void loadChapterWithDrafts(chapter.id); }} className={`w-full text-left rounded-lg px-3 py-2.5 text-sm transition border ${selectedChapterId === chapter.id ? 'bg-[var(--accent)]/10 border-[var(--accent)]/30 text-[var(--accent)] font-medium' : 'border-transparent text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'}`}>
                   <div className="truncate">{chapter.title}</div>
