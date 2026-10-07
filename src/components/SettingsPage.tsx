@@ -230,7 +230,10 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="flex-1 overflow-y-auto bg-[var(--bg-primary)]">
-      <div className="mx-auto w-full max-w-3xl px-6 py-8">
+      {/* L2：flex-col + items-center 双保险居中——不再依赖 margin auto
+          （.btn 系列的教训：无 layer 样式可能压过 utilities，margin-auto
+          在个别视口/父容器组合下不可靠）。 */}
+      <div className="mx-auto flex w-full max-w-3xl flex-col px-6 py-8">
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--accent)]">Preferences</div>
@@ -244,9 +247,27 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="mt-8 space-y-6">
+        {/* L2：分类导航——设置按类型分三组，点击滚动到对应卡片。
+            配合每个 Module 的 scroll-mt，长页里始终知道自己在哪一类。 */}
+        <nav className="mt-6 flex flex-wrap gap-2">
+          {[
+            { id: 'sec-voice-model', label: '语音模型' },
+            { id: 'sec-ai-model', label: 'AI 大模型' },
+            { id: 'sec-voice-input', label: '语音识别' },
+          ].map((item, index) => (
+            <button
+              key={item.id}
+              onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="btn btn-sm btn-secondary"
+            >
+              {index + 1}. {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mt-6 space-y-8">
           {/* ===== Module 1: 语音模型（下载与管理） ===== */}
-          <Module title="语音模型" icon={modelIcon} description="管理本地识别模型的下载与存放位置，并选择当前使用的 Whisper 模型。">
+          <Module id="sec-voice-model" title="语音模型" icon={modelIcon} description="管理本地识别模型的下载与存放位置，并选择当前使用的 Whisper 模型。">
             <SettingRow label="当前使用模型" detail="仅已下载的模型可用于录音转写。">
               <select
                 value={settings.whisperModel}
@@ -396,7 +417,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </Module>
 
           {/* ===== Module 2: AI 大模型（API Key） ===== */}
-          <Module title="AI 大模型" icon={aiIcon} description="配置用于「初步整理」与「散文生成」的 OpenAI 兼容接口与 API Key。">
+          <Module id="sec-ai-model" title="AI 大模型" icon={aiIcon} description="配置用于「初步整理」与「散文生成」的 OpenAI 兼容接口与 API Key。">
             <LLMConfigSection
               label="AI 初步整理模型"
               caption="轻量模型即可，负责清理语音稿。"
@@ -415,7 +436,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </Module>
 
           {/* ===== Group: 语音识别（偏好） ===== */}
-          <Module title="语音识别" icon={micIcon} description="选择默认识别语言、补充自定义热词，并设置录音快捷键。">
+          <Module id="sec-voice-input" title="语音识别" icon={micIcon} description="选择默认识别语言、补充自定义热词，并设置录音快捷键。">
             <div>
               <div className="mb-2 text-sm font-medium text-[var(--text-primary)]">默认识别语言</div>
               <div className="grid grid-cols-3 gap-2">
@@ -472,9 +493,10 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function Module({ title, description, icon, children }: { title: string; description?: string; icon?: ReactNode; children: ReactNode }) {
+function Module({ id, title, description, icon, children }: { id?: string; title: string; description?: string; icon?: ReactNode; children: ReactNode }) {
   return (
-    <section>
+    // scroll-mt：锚点跳转时给顶部导航栏留出呼吸空间
+    <section id={id} className="scroll-mt-6">
       <div className="mb-4 flex items-center gap-3">
         {icon && (
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
