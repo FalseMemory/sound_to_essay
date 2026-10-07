@@ -40,9 +40,12 @@
 }
 
 /* ⚠️ 不要在这里写 `* { margin: 0; padding: 0 }` 之类的手写 reset！
- * 它是**无 layer 样式**，优先级高于 Tailwind v4 @layer utilities 里的全部
- * margin-*/padding-* 工具类——2026-10-07 实测把全应用的 mx-auto / space-y-*
- * 全部压死（设置页贴左的根因）。margin/padding 重置交给 preflight（@layer base）。
+ * 它是**无 layer 样式**，优先级高于 Tailwind v4 @layer utilities 里全部
+ * 间距工具类——2026-10-07 实测把全应用的 mx-auto 与 space-y 系列全部
+ * 压死（设置页贴左的根因）。间距重置交给 preflight（@layer base）。
+ * 注意：本注释曾把 `margin-斜线-padding` 写进注释体，其中字符组合
+ * 恰好提前终止了注释，导致紧随其后的 html/body/#root 高度规则整条
+ * 失效、全应用退化为整页滚动——注释内容里绝不能再出现这类字符序列。
  */
 html, body, #root {
   height: 100%;
