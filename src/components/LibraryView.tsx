@@ -955,17 +955,19 @@ export function LibraryView() {
 
       {/* Main content */}
       <main className="min-w-0 flex-1 flex flex-col">
-        {/* L2.5：资料库级常规操作移到右栏顶部——这是全局操作的标准位置；
-            左栏因此只剩纯浏览路径（项目 → 模式 → 搜索筛选 → 列表）。 */}
+        {/* L2.5：资料库级常规操作。L2.5b：仅在**未选中任何内容**（项目详情卡可见）时显示——
+            用户反馈：正在阅读/编辑某条记忆时，这排项目级按钮是干扰；操作完回到
+            项目详情卡即可再次访问（切换模式或点其他位置即可取消选中）。 */}
+        {!detail && !chapterDetail && (
         <div className="shrink-0 border-b border-[var(--border)] bg-[var(--bg-secondary)] px-6 py-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => void choosePackFile()} disabled={!projectId} className="btn btn-sm btn-secondary" title="导入手机导出的 .svpack 素材包">素材包…</button>
-            <button onClick={() => void chooseImportFiles()} disabled={!projectId} className="btn btn-sm btn-secondary" title="直接导入电脑上的音频文件">音频文件…</button>
+            <button onClick={() => void choosePackFile()} disabled={!projectId} className="btn btn-sm btn-secondary" title="导入手机导出的 .svpack 素材包">导入素材包</button>
+            <button onClick={() => void chooseImportFiles()} disabled={!projectId} className="btn btn-sm btn-secondary" title="直接导入电脑上的音频文件">导入音频文件</button>
             <div className="h-5 w-px bg-[var(--border)]" />
             <button onClick={() => void createBackup()} className="btn btn-sm btn-secondary" title="创建整库备份（.svbak，含全部音频）">创建备份</button>
-            <button onClick={() => void chooseRestoreFile()} className="btn btn-sm btn-secondary" title="从 .svbak 备份恢复整库">恢复…</button>
+            <button onClick={() => void chooseRestoreFile()} className="btn btn-sm btn-secondary" title="从 .svbak 备份恢复整库">恢复备份</button>
             <div className="h-5 w-px bg-[var(--border)]" />
-            <button onClick={() => void exportBook()} disabled={!projectId} className="btn btn-sm btn-secondary" title="导出整本回忆录为单个 Markdown，各章节保留来源记忆清单">导出整本…</button>
+            <button onClick={() => void exportBook()} disabled={!projectId} className="btn btn-sm btn-secondary" title="导出整本回忆录为单个 Markdown，各章节保留来源记忆清单">导出整本回忆录</button>
             <div className="ml-auto" />
             {projectId && (
               <button onClick={() => deleteLibraryProject()} className="btn btn-sm btn-danger" title="删除当前资料库项目及其全部记忆与章节">
@@ -1030,6 +1032,7 @@ export function LibraryView() {
             </div>
           )}
         </div>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {notice && (
           <div className="mb-4 rounded-xl border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 text-sm text-[var(--text-primary)] flex items-center gap-2 animate-fade-in">
