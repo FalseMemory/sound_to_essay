@@ -813,10 +813,10 @@ export function LibraryView() {
         <div className="border-b border-[var(--border)] p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--accent)]">Oral History</div>
+              <div className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Oral History</div>
               <h2 className="mt-0.5 text-base font-bold">资料库</h2>
             </div>
-            <button onClick={() => void createLibraryProject()} className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition shadow-sm shadow-blue-500/20">新项目</button>
+            <button onClick={() => void createLibraryProject()} className="btn btn-sm btn-primary">新项目</button>
           </div>
           <select value={projectId} onChange={(event) => { setProjectId(event.target.value); rememberLibrarySelection(event.target.value); }} className="control w-full text-sm">
             <option value="">选择资料库项目</option>
@@ -840,46 +840,46 @@ export function LibraryView() {
               <div className="flex gap-2">
                 <button
                   onClick={() => void choosePackFile()}
-                  className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1.5 text-[11px] font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-tertiary)]"
+                  className="btn btn-sm btn-secondary flex-1"
                   title="导入手机导出的 .svpack 素材包"
                 >
                   素材包…
                 </button>
                 <button
                   onClick={() => void chooseImportFiles()}
-                  className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1.5 text-[11px] font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-tertiary)]"
+                  className="btn btn-sm btn-secondary flex-1"
                   title="直接导入电脑上的音频文件"
                 >
                   音频文件…
                 </button>
               </div>
 
-              {packNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{packNotice}</div>}
+              {packNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{packNotice}</div>}
               {packPreview && (
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
-                  <div className="text-[11px] text-[var(--text-primary)]">
+                  <div className="text-xs text-[var(--text-primary)]">
                     记录 {packPreview.recordCount} 条 · 音频 {packPreview.audioCount} 个
                     {packPreview.duplicates > 0 && ` · 重复 ${packPreview.duplicates}`}
                     {packPreview.updates > 0 && ` · 将更新 ${packPreview.updates}`}
                     {packPreview.conflicts > 0 && ` · 冲突 ${packPreview.conflicts}`}
                     {packPreview.missingAudio > 0 && ` · 缺失音频 ${packPreview.missingAudio}`}
                   </div>
-                  <div className="text-[10px] text-[var(--text-secondary)]">
+                  <div className="text-xs text-[var(--text-secondary)]">
                     导出时间：{formatDate(packPreview.exportedAt)} · 协议 v{packPreview.formatVersion}
                   </div>
-                  <button onClick={() => void runPackImport()} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[var(--accent-hover)] transition">
+                  <button onClick={() => void runPackImport()} className="btn btn-sm btn-primary">
                     导入此素材包
                   </button>
                 </div>
               )}
 
-              {importNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{importNotice}</div>}
+              {importNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{importNotice}</div>}
               {importCandidates.map((candidate) => (
                 <div key={candidate.sourcePath} className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="truncate text-[11px] font-medium text-[var(--text-primary)]">{candidate.fileName}</div>
-                      <div className="text-[10px] text-[var(--text-secondary)]">
+                      <div className="truncate text-xs font-medium text-[var(--text-primary)]">{candidate.fileName}</div>
+                      <div className="text-xs text-[var(--text-secondary)]">
                         {candidate.format.toUpperCase()}
                         {candidate.durationSecs != null && ` · ${candidate.durationSecs.toFixed(1)}s`}
                         {candidate.sampleRate != null && ` · ${candidate.sampleRate}Hz`}
@@ -889,12 +889,12 @@ export function LibraryView() {
                     <button
                       onClick={() => void runImport(candidate)}
                       disabled={!!candidate.error || candidate.alreadyImported}
-                      className="shrink-0 rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[var(--accent-hover)] transition disabled:opacity-40"
+                      className="btn btn-sm btn-primary shrink-0"
                     >
                       导入
                     </button>
                   </div>
-                  {candidate.error && <div className="text-[10px] text-red-600 dark:text-red-300">{candidate.error}</div>}
+                  {candidate.error && <div className="text-xs text-red-600 dark:text-red-300">{candidate.error}</div>}
                 </div>
               ))}
             </div>
@@ -908,18 +908,18 @@ export function LibraryView() {
             <div className="flex items-center justify-between">
               <div className="text-xs font-semibold text-[var(--text-secondary)]">备份与恢复</div>
               <div className="flex items-center gap-2">
-                <button onClick={() => void createBackup()} className="text-[10px] font-medium text-[var(--accent)] hover:underline">创建备份</button>
-                <button onClick={() => void chooseRestoreFile()} className="text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] hover:underline">恢复…</button>
+                <button onClick={() => void createBackup()} className="btn btn-sm btn-ghost">创建备份</button>
+                <button onClick={() => void chooseRestoreFile()} className="btn btn-sm btn-ghost">恢复…</button>
               </div>
             </div>
-            {backupNotice && <div className="text-[11px] text-[var(--text-secondary)] break-all">{backupNotice}</div>}
+            {backupNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{backupNotice}</div>}
             {restorePreview && (
               <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
-                <div className="text-[11px] text-[var(--text-primary)]">
+                <div className="text-xs text-[var(--text-primary)]">
                   备份时间：{formatDate(restorePreview.createdAt)} · 音频 {restorePreview.audioCount} 个
                   {restorePreview.audioMissingLocally > 0 && ` · 本地缺失 ${restorePreview.audioMissingLocally} 个`}
                 </div>
-                <button onClick={() => requestRestore()} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[var(--accent-hover)] transition">
+                <button onClick={() => requestRestore()} className="btn btn-sm btn-primary">
                   恢复此备份
                 </button>
               </div>
@@ -937,12 +937,12 @@ export function LibraryView() {
               <button
                 onClick={() => void exportBook()}
                 title="导出整本回忆录为单个 Markdown，各章节保留来源记忆清单"
-                className="text-[10px] font-medium text-[var(--accent)] hover:underline"
+                className="btn btn-sm btn-ghost"
               >
                 导出整本 Markdown…
               </button>
             </div>
-            <div className="mt-1 text-[10px] text-[var(--text-secondary)]">
+            <div className="mt-1 text-xs text-[var(--text-secondary)]">
               合订所有章节，保留来源记忆清单便于溯源
             </div>
           </div>
@@ -1039,7 +1039,7 @@ export function LibraryView() {
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs font-semibold text-[var(--text-secondary)]">章节列表</div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => void createChapter()} className="text-[10px] font-medium text-[var(--accent)] hover:underline">+ 新建</button>
+                  <button onClick={() => void createChapter()} className="btn btn-sm btn-ghost">+ 新建</button>
                 </div>
               </div>
 
@@ -1068,13 +1068,13 @@ export function LibraryView() {
                   <button key={memory.id} onClick={() => void selectMemory(memory.id)} className={`group w-full rounded-xl border p-3 text-left transition-all ${selectedId === memory.id ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 shadow-sm' : 'border-transparent hover:bg-[var(--bg-tertiary)] hover:border-[var(--border)]'}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="truncate text-sm font-medium text-[var(--text-primary)]">{memory.title}</div>
-                      {memory.audioCount > 0 && <span className="shrink-0 text-[10px] opacity-60">🎙</span>}
+                      {memory.audioCount > 0 && <span className="shrink-0 text-xs opacity-60">🎙</span>}
                     </div>
                     <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{memory.eventDateText || formatDate(memory.audioRecordedAt)}</div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${statusStyle(memory.status)}`}>{statusLabel(memory.status)}</span>
-                      {badge && <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${badge.className}`}>{badge.label}</span>}
-                      {memory.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">#{tag}</span>)}
+                      <span className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${statusStyle(memory.status)}`}>{statusLabel(memory.status)}</span>
+                      {badge && <span className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${badge.className}`}>{badge.label}</span>}
+                      {memory.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-md bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">#{tag}</span>)}
                     </div>
                   </button>
                 );
@@ -1191,7 +1191,7 @@ function LazyAudioPlayer({ audio }: { audio: { id: string; filePath: string; dur
         <div className="min-w-0 flex-1">
           {/* B1：导入音频优先显示原始文件名，便于溯源 */}
           <div className="truncate text-xs font-medium">{audio.originalFilename || audio.filePath.split("\\").pop()}</div>
-          <div className="text-[10px] text-[var(--text-secondary)]">
+          <div className="text-xs text-[var(--text-secondary)]">
             {audio.sourceFormat ? `${audio.sourceFormat.toUpperCase()} · ` : ''}
             {audio.durationSecs !== undefined ? `${audio.durationSecs.toFixed(1)} 秒` : ''}
           </div>
@@ -1292,7 +1292,7 @@ function AIProcessor({ memoryId, versionId, onDone }: { memoryId: string; versio
       </button>
     </div>
     {isProcessing && <div className="text-xs text-[var(--text-secondary)]">正在连接模型并等待响应，请勿关闭应用...</div>}
-    {config?.modelName && !isProcessing && <div className="text-[10px] text-[var(--text-secondary)]">当前模型：{config.modelName} · {providerLabel}</div>}
+    {config?.modelName && !isProcessing && <div className="text-xs text-[var(--text-secondary)]">当前模型：{config.modelName} · {providerLabel}</div>}
     {!isConfigured && <div className="text-xs text-amber-600 dark:text-amber-400">⚠️ 请在「设置」中配置 LLM API 地址和模型名称后再使用 AI 整理。</div>}
     {notice && <div className={`text-xs ${notice.includes('失败') ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{notice}</div>}
   </div>;
@@ -1334,7 +1334,7 @@ function TimelineView({ memories, onSelect }: { memories: MemorySummary[]; onSel
               <button key={memory.id} onClick={() => onSelect(memory.id)} className="group block w-full rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-[var(--border)] hover:bg-[var(--bg-tertiary)]">
                 <div className="flex items-baseline justify-between gap-2">
                   <div className="truncate text-sm font-medium text-[var(--text-primary)]">{memory.title}</div>
-                  {memory.eventDateText && <span className="shrink-0 text-[10px] text-[var(--text-secondary)]">{memory.eventDateText}</span>}
+                  {memory.eventDateText && <span className="shrink-0 text-xs text-[var(--text-secondary)]">{memory.eventDateText}</span>}
                 </div>
                 {memory.location && <div className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">📍 {memory.location}</div>}
               </button>
@@ -1570,7 +1570,7 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
                   <button onClick={() => onSelectMemory(memory.id)} className="min-w-0 flex-1 text-left">
                     <div className="truncate text-sm font-medium text-[var(--text-primary)]">{memory.title}</div>
                   </button>
-                  <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium ${c.uncertain ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300' : 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'}`}>{c.label}</span>
+                  <span className={`shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium ${c.uncertain ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300' : 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'}`}>{c.label}</span>
                 </div>
               );
             })}
@@ -1583,7 +1583,7 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
       <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">可能相关记忆</h3>
-          <button onClick={() => void loadSuggestions()} disabled={loadingSuggestions} className="text-[10px] font-medium text-[var(--accent)] hover:underline disabled:opacity-50">
+          <button onClick={() => void loadSuggestions()} disabled={loadingSuggestions} className="text-xs font-medium text-[var(--accent)] hover:underline disabled:opacity-50">
             {loadingSuggestions ? '加载中…' : '刷新候选'}
           </button>
         </div>
@@ -1593,9 +1593,9 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
             <div key={s.memory.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2">
               <button onClick={() => onSelectMemory(s.memory.id)} className="min-w-0 flex-1 text-left">
                 <div className="truncate text-sm font-medium text-[var(--text-primary)]">{s.memory.title}</div>
-                <div className="mt-0.5 truncate text-[10px] text-[var(--text-secondary)]">{s.reason}</div>
+                <div className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{s.reason}</div>
               </button>
-              <button onClick={() => void addSuggested(s.memory.id)} className="shrink-0 rounded-lg border border-[var(--accent)]/40 px-3 py-1.5 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition">加入</button>
+              <button onClick={() => void addSuggested(s.memory.id)} className="btn btn-sm btn-secondary shrink-0">加入</button>
             </div>
           ))}
           {suggestions.length === 0 && !loadingSuggestions && <p className="text-xs text-[var(--text-secondary)]">点击「刷新候选」获取建议，或当前暂无更多相似记忆。</p>}
@@ -1610,11 +1610,11 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
             <p className="mt-1 text-xs text-[var(--text-secondary)]">编辑后保存为新草稿版本，不会覆盖已有内容。</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => void exportMarkdown()} className="rounded-lg border border-[var(--accent)]/40 px-4 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent)]/10 transition flex items-center gap-1.5">
+            <button onClick={() => void exportMarkdown()} className="btn btn-md btn-secondary flex items-center gap-1.5">
               {icons.download}
               导出 Markdown
             </button>
-            <button onClick={() => void saveDraft()} disabled={!draftText.trim()} className="rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition disabled:opacity-50 flex items-center gap-1.5">
+            <button onClick={() => void saveDraft()} disabled={!draftText.trim()} className="btn btn-md btn-primary flex items-center gap-1.5">
               {icons.pen}
               保存草稿
             </button>
@@ -1628,7 +1628,7 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
           placeholder="在此撰写章节草稿，或点击「AI 生成」根据素材自动创建..."
         />
         <div className="space-y-1.5">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-secondary)]">AI 写作风格（可选）</label>
+          <label className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">AI 写作风格（可选）</label>
           <textarea
             className="control min-h-16 w-full text-xs leading-relaxed"
             value={draftStyle}
@@ -1637,7 +1637,7 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-secondary)]">整理档位</label>
+          <label className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">整理档位</label>
           <div className="flex items-center rounded-lg bg-[var(--bg-tertiary)] p-0.5 text-xs w-fit">
             <button
               type="button"
@@ -1658,7 +1658,7 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
           </div>
         </div>
         <div className="flex items-center justify-between">
-          <div className="text-[10px] text-[var(--text-secondary)]">
+          <div className="text-xs text-[var(--text-secondary)]">
             {currentDraft ? `当前草稿：${currentDraft.draftType} · ${formatDate(currentDraft.createdAt)}${currentDraft.model ? ` · ${currentDraft.model}` : ''}` : '暂无草稿'}
           </div>
           <button onClick={() => void aiGenerateDraft()} disabled={isAiGenerating || !isConfigured} className={`rounded-lg px-4 py-2 text-xs font-semibold text-white transition flex items-center gap-2 ${isAiGenerating || !isConfigured ? 'opacity-50 cursor-not-allowed bg-[var(--bg-tertiary)]' : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600'}`}>
@@ -1668,7 +1668,7 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
           </button>
         </div>
         {isAiGenerating && <div className="text-xs text-[var(--text-secondary)]">正在根据章节素材生成草稿，请勿关闭应用...</div>}
-        {config?.modelName && !isAiGenerating && <div className="text-[10px] text-[var(--text-secondary)]">当前模型：{config.modelName} · {providerLabel}</div>}
+        {config?.modelName && !isAiGenerating && <div className="text-xs text-[var(--text-secondary)]">当前模型：{config.modelName} · {providerLabel}</div>}
         {!isConfigured && <div className="text-xs text-amber-600 dark:text-amber-400">⚠️ 请在「设置」中配置 LLM API 地址和模型名称后再使用 AI 生成。</div>}
         {aiNotice && <div className={`text-xs ${aiNotice.includes('失败') ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{aiNotice}</div>}
       </section>
@@ -1684,15 +1684,15 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
                   <div className="flex items-center gap-2 text-xs font-medium">
                     <span className={`h-2 w-2 rounded-full ${draft.isCurrent ? 'bg-[var(--accent)]' : 'bg-[var(--text-secondary)]'}`} />
                     <span className="capitalize">{draft.draftType}</span>
-                    {draft.processingType && <span className="text-[10px] text-[var(--text-secondary)]">({draft.processingType})</span>}
-                    {draft.tier === 'creative' && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">创作性</span>}
-                    {draft.isCurrent && <span className="rounded bg-[var(--accent)]/15 px-1.5 py-0.5 text-[10px] text-[var(--accent)]">当前</span>}
+                    {draft.processingType && <span className="text-xs text-[var(--text-secondary)]">({draft.processingType})</span>}
+                    {draft.tier === 'creative' && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">创作性</span>}
+                    {draft.isCurrent && <span className="rounded bg-[var(--accent)]/15 px-1.5 py-0.5 text-xs text-[var(--accent)]">当前</span>}
                   </div>
                   <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{formatDate(draft.createdAt)} · {draft.content.slice(0, 100) || '（空文本）'}</div>
                   {/* A2：来源必须读生成时记录下来的数据，而不是当前章节关联的记忆列表，
                       这样即便记忆被改名、版本被切换或已移出章节，旧草稿仍可追溯当时的输入。 */}
                   {draft.sources.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-[var(--text-secondary)]">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1 text-xs text-[var(--text-secondary)]">
                       <span>来源：</span>
                       {draft.sources.map((source) => (
                         <span
@@ -1708,18 +1708,18 @@ function ChapterView({ chapter, onSelectMemory, onRemoveMemory, onBack, onChapte
                     </div>
                   )}
                   {draft.requirement && (
-                    <div className="mt-1 truncate text-[10px] text-[var(--text-secondary)]" title={draft.requirement}>
+                    <div className="mt-1 truncate text-xs text-[var(--text-secondary)]" title={draft.requirement}>
                       写作要求：{draft.requirement}
                     </div>
                   )}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   {!draft.isCurrent && (
-                    <button onClick={() => void switchDraft(draft.id)} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--accent)] hover:bg-[var(--accent)]/10 hover:border-[var(--accent)]/30 transition font-medium">
+                    <button onClick={() => void switchDraft(draft.id)} className="btn btn-sm btn-secondary">
                       恢复
                     </button>
                   )}
-                  <button onClick={() => void deleteDraft(draft.id)} className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition font-medium">
+                  <button onClick={() => void deleteDraft(draft.id)} className="btn btn-sm btn-danger">
                     {icons.trash}
                   </button>
                 </div>
@@ -1761,30 +1761,30 @@ function MemoryEditor({ detail, textDraft, setTextDraft, setDetail, saveMetadata
       <div className="flex-1">
         <h2 className="text-xl font-bold text-[var(--text-primary)]">{detail.title}</h2>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${statusStyle(detail.status)}`}>{statusLabel(detail.status)}</span>
-          {taskBadge && <span className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${taskBadge.className}`}>{taskBadge.label}</span>}
+          <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${statusStyle(detail.status)}`}>{statusLabel(detail.status)}</span>
+          {taskBadge && <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${taskBadge.className}`}>{taskBadge.label}</span>}
           {detail.eventDateText && <span className="text-xs text-[var(--text-secondary)]">{detail.eventDateText}</span>}
           {detail.location && <span className="text-xs text-[var(--text-secondary)]">📍 {detail.location}</span>}
-          {detail.deletedAt && <span className="rounded-md bg-red-500/10 px-2 py-0.5 text-[10px] text-red-600 font-medium">已删除</span>}
+          {detail.deletedAt && <span className="rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-600 font-medium">已删除</span>}
         </div>
         {/* A1：转写失败时保留记忆与原始音频，这里给出失败原因与重试入口 */}
         {task?.status === 'failed' && task.error && (
           <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-600 dark:text-red-300">
             上次转写失败：{task.error}
-            <div className="mt-0.5 text-[11px] opacity-80">原始音频与这条记忆都已保留，可点击「重新转写」重试。</div>
+            <div className="mt-0.5 text-xs opacity-80">原始音频与这条记忆都已保留，可点击「重新转写」重试。</div>
           </div>
         )}
       </div>
       <div className="flex shrink-0 gap-2">
         {task && task.status !== 'success' && (
-          <button onClick={() => void retryTranscription()} disabled={transcribing} className="rounded-lg border border-[var(--accent)]/40 px-3 py-1.5 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition disabled:opacity-50">
+          <button onClick={() => void retryTranscription()} disabled={transcribing} className="btn btn-sm btn-secondary">
             {transcribing ? '转写中…' : task.status === 'failed' ? '重新转写' : '开始转写'}
           </button>
         )}
         {detail.deletedAt ? (
-          <button onClick={() => void restoreMemory()} className="rounded-lg border border-[var(--accent)]/40 px-3 py-1.5 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition">恢复</button>
+          <button onClick={() => void restoreMemory()} className="btn btn-sm btn-secondary">恢复</button>
         ) : (
-          <button onClick={() => void removeMemory()} className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 transition">移入回收站</button>
+          <button onClick={() => void removeMemory()} className="btn btn-sm btn-danger">移入回收站</button>
         )}
       </div>
     </div>
@@ -1815,7 +1815,7 @@ function MemoryEditor({ detail, textDraft, setTextDraft, setDetail, saveMetadata
         <div className="md:col-span-2"><Field label="备注"><textarea className="control min-h-24 w-full" value={detail.notes || ''} onChange={(event) => update({ notes: event.target.value })} placeholder="尚待核实的细节、后续想补充的内容..." /></Field></div>
       </div>
       <div className="flex justify-end">
-        <button onClick={() => void saveMetadata()} className="rounded-lg bg-[var(--accent)] px-5 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition shadow-sm shadow-blue-500/20">保存元数据</button>
+        <button onClick={() => void saveMetadata()} className="btn btn-md btn-primary">保存元数据</button>
       </div>
     </section>
 
@@ -1846,7 +1846,7 @@ function MemoryEditor({ detail, textDraft, setTextDraft, setDetail, saveMetadata
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">当前工作文本</h3>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">保存会产生新的人工校订版本，原始转写不会被覆盖。</p>
         </div>
-        <button onClick={() => void saveWorkingText()} className="rounded-lg bg-[var(--accent)] px-5 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition shadow-sm shadow-blue-500/20 flex items-center gap-1.5">
+        <button onClick={() => void saveWorkingText()} className="btn btn-md btn-primary flex items-center gap-1.5">
           {icons.pen}
           保存为新版本
         </button>
@@ -1866,7 +1866,7 @@ function MemoryEditor({ detail, textDraft, setTextDraft, setDetail, saveMetadata
         {(detail as any).chapters?.map((chapter: Chapter) => (
           <div key={chapter.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-3">
             <div className="text-sm font-medium text-[var(--text-primary)]">{chapter.title}</div>
-            <button onClick={() => void onRemoveFromChapter(chapter.id)} className="shrink-0 rounded-lg border border-red-500/20 px-3 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 transition font-medium">移除</button>
+            <button onClick={() => void onRemoveFromChapter(chapter.id)} className="btn btn-sm btn-danger shrink-0">移除</button>
           </div>
         ))}
         {(!(detail as any).chapters || (detail as any).chapters.length === 0) && <p className="text-xs text-[var(--text-secondary)]">此记忆尚未加入任何章节</p>}
@@ -1876,7 +1876,7 @@ function MemoryEditor({ detail, textDraft, setTextDraft, setDetail, saveMetadata
               <option value="">选择章节...</option>
               {chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.title}</option>)}
             </select>
-            <button onClick={() => { const select = document.getElementById('add-to-chapter') as HTMLSelectElement; if (select.value) void onAddToChapter(select.value); }} className="rounded-lg border border-[var(--accent)]/40 px-4 py-1.5 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition">添加</button>
+            <button onClick={() => { const select = document.getElementById('add-to-chapter') as HTMLSelectElement; if (select.value) void onAddToChapter(select.value); }} className="btn btn-sm btn-secondary">添加</button>
           </div>
         )}
       </div>
@@ -1891,18 +1891,18 @@ function MemoryEditor({ detail, textDraft, setTextDraft, setDetail, saveMetadata
               <div className="flex items-center gap-2 text-xs font-medium">
                 <span className={`h-2 w-2 rounded-full ${version.isCurrent ? 'bg-[var(--accent)]' : 'bg-[var(--text-secondary)]'}`} />
                 {version.versionType}
-                {version.tier === 'creative' && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">创作性</span>}
-                {version.isCurrent && <span className="rounded bg-[var(--accent)]/15 px-1.5 py-0.5 text-[10px] text-[var(--accent)]">当前</span>}
+                {version.tier === 'creative' && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">创作性</span>}
+                {version.isCurrent && <span className="rounded bg-[var(--accent)]/15 px-1.5 py-0.5 text-xs text-[var(--accent)]">当前</span>}
               </div>
               <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{formatDate(version.createdAt)} · {version.content.slice(0, 90) || '（空文本）'}</div>
             </div>
             <div className="flex shrink-0 gap-2">
-              {!version.isCurrent && <button onClick={() => void restoreVersion(version.id)} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--accent)] hover:bg-[var(--accent)]/10 hover:border-[var(--accent)]/30 transition font-medium">恢复</button>}
+              {!version.isCurrent && <button onClick={() => void restoreVersion(version.id)} className="btn btn-sm btn-secondary">恢复</button>}
               {/* A2：原始转写是原始素材，不提供删除入口 */}
               {version.versionType === 'raw_transcription' ? (
-                <span className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)]" title="原始转写属于原始素材，为保证可追溯性不提供删除">受保护</span>
+                <span className="btn btn-sm btn-secondary" title="原始转写属于原始素材，为保证可追溯性不提供删除">受保护</span>
               ) : (
-                <button onClick={() => void deleteVersion(version.id)} className="rounded-lg border border-red-500/20 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition font-medium">删除</button>
+                <button onClick={() => void deleteVersion(version.id)} className="btn btn-sm btn-danger">删除</button>
               )}
             </div>
           </div>

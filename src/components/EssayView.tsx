@@ -58,19 +58,19 @@ export function EssayView() {
       <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2">
         <button
           onClick={handleAddToWorkspace}
-          className="rounded-lg bg-[var(--success)] px-3 py-1 text-xs text-white transition hover:brightness-110"
+          className="btn btn-sm btn-success"
         >
           {added ? '✓ 已添加' : '+ 添加到创作区'}
         </button>
         <button
           onClick={handleCopy}
-          className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:border-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          className="btn btn-sm btn-secondary"
         >
           复制
         </button>
         <button
           onClick={handleExport}
-          className="rounded-lg bg-[var(--accent)] px-3 py-1 text-xs text-white transition hover:bg-[var(--accent-hover)]"
+          className="btn btn-sm btn-primary"
         >
           导出 Markdown
         </button>

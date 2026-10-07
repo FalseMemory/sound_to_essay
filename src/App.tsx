@@ -175,11 +175,7 @@ function App() {
                 <button
                   key={item.key}
                   onClick={() => { setShowSettings(false); setView(item.key); }}
-                  className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-medium transition ${
-                    active
-                      ? 'bg-[var(--accent)] text-white shadow-sm'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
+                  className={`btn btn-md ${active ? 'btn-active' : 'btn-ghost'}`}
                 >
                   {item.icon}
                   {item.label}
@@ -205,7 +201,7 @@ function App() {
           )}
           <button
             onClick={toggleTheme}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-[var(--text-secondary)] transition hover:border-[var(--border)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]"
+            className="btn btn-icon btn-ghost"
             title={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'}
             aria-label={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'}
           >
@@ -220,11 +216,7 @@ function App() {
               if (showSettings) window.dispatchEvent(new Event('settings-close-request'));
               else setShowSettings(true);
             }}
-            className={`flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition ${
-              showSettings
-                ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
-                : 'text-[var(--text-secondary)] hover:border-[var(--border)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
-            }`}
+            className={`btn btn-icon ${showSettings ? 'btn-active' : 'btn-ghost'}`}
             title="设置"
             aria-label="设置"
           >
@@ -287,7 +279,7 @@ function Workspace({ polish, onCleanup }: { polish: ReturnType<typeof usePolish>
         <button
           onClick={polish.run}
           disabled={polish.isPolishing || !hasClips}
-          className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+          className="btn btn-md btn-primary flex items-center gap-2"
         >
           {polish.isPolishing ? (
             <>
@@ -302,7 +294,7 @@ function Workspace({ polish, onCleanup }: { polish: ReturnType<typeof usePolish>
           <StyleSelector />
           <button
             onClick={onCleanup}
-            className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text-secondary)] transition hover:border-[var(--error)] hover:text-[var(--error)]"
+            className="btn btn-md btn-secondary"
             title="清理未被引用的录音文件"
           >
             🧹 清理录音
@@ -322,7 +314,7 @@ function Workspace({ polish, onCleanup }: { polish: ReturnType<typeof usePolish>
               <button onClick={() => setTab('essay')} disabled={!hasEssay} className={segTab(tab === 'essay', hasEssay)}>散文</button>
             </div>
             {tab === 'polish' && polish.tier === 'creative' && hasPolish && (
-              <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">文学化改写·创作性</span>
+              <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">文学化改写·创作性</span>
             )}
           </div>
           <div className="min-h-0 flex-1">

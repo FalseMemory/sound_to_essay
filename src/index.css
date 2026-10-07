@@ -114,3 +114,108 @@ body {
   border: 1px solid var(--border);
   border-radius: 0.875rem;
 }
+
+/* ===== 按钮规范（L1 视觉统一）=====
+ *
+ * 背景：此前每个按钮都是手写的一串 Tailwind 类——**12 种以上 padding、
+ * 5 种字号（含 45 处 10/11px）**，同一个「次要按钮」在不同位置长得不一样。
+ * 用户反馈「按钮大大小小、又很混杂」，这是直接原因（2026-10-06 UI 审计）。
+ *
+ * 现在收敛为 **4 种语气 × 2 种尺寸**：
+ *   语气：primary（唯一主操作）/ secondary（次要）/ ghost（文字链接）/ danger（破坏性）
+ *   尺寸：md（14px，默认）/ sm（12px，紧凑区）
+ * 字号只有 12 / 14 两档，**不再使用 10px**。
+ *
+ * 用法：class="btn btn-md btn-primary"，需要撑满时再加布局类（如 w-full、flex-1）。
+ * 不要在同一元素上再写 px-*/py-*/text-* 尺寸类——规范类优先级更高会覆盖它们，
+ * 混写只会让代码更难读。
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 尺寸：只有两档 */
+.btn-md { padding: 0.5rem 0.875rem; font-size: 0.875rem; } /* 14px */
+.btn-sm { padding: 0.375rem 0.625rem; font-size: 0.75rem; } /* 12px */
+
+/* 语气 */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--bg-tertiary); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--error) 40%, transparent);
+  color: var(--error);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+}
+
+/* 实心破坏性确认（危险对话框的主按钮）——与描边 .btn-danger 互补 */
+.btn-danger-solid {
+  background: var(--error);
+  color: #fff;
+}
+.btn-danger-solid:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 85%, #000);
+}
+
+/* 图标按钮（正方形，无文字）——主题切换、设置入口等 */
+.btn-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+}
+
+/* 选中态（分段导航的当前项） */
+.btn-active {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-active:hover:not(:disabled) { background: var(--accent-hover); }
+
+/* 成功语气（复制完成等正向反馈） */
+.btn-success {
+  background: var(--success);
+  color: #fff;
+}
+.btn-success:hover:not(:disabled) { filter: brightness(1.1); }

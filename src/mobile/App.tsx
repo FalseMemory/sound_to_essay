@@ -84,7 +84,7 @@ export function MobileApp() {
                 key={item.key}
                 onClick={() => setTab(item.key)}
                 aria-current={active ? 'page' : undefined}
-                className={`touch-target flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition ${
+                className={`touch-target flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium transition ${
                   active ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
                 }`}
               >

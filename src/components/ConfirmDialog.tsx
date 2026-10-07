@@ -47,28 +47,18 @@ export function ConfirmDialog({
         <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
         <div className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{message}</div>
         <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]"
-          >
+          <button onClick={onCancel} className="btn btn-md btn-secondary">
             {cancelLabel}
           </button>
           {secondaryLabel && (
-            <button
-              onClick={onSecondary}
-              className="rounded-lg border border-[var(--error)]/40 px-4 py-2 text-sm font-medium text-[var(--error)] transition hover:bg-[var(--error)]/10"
-            >
+            <button onClick={onSecondary} className="btn btn-md btn-danger">
               {secondaryLabel}
             </button>
           )}
           <button
             onClick={onConfirm}
             disabled={confirmDisabled}
-            className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 ${
-              danger
-                ? 'bg-[var(--error)] hover:opacity-90'
-                : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'
-            }`}
+            className={`btn btn-md ${danger ? 'btn-danger-solid' : 'btn-primary'}`}
           >
             {confirmLabel}
           </button>

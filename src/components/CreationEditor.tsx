@@ -87,7 +87,7 @@ export function CreationEditor({ onRetranscribe, busyClipId }: {
                   <span className="text-[var(--text-secondary)]">#{idx + 1}</span>
                   {badge && (
                     <span
-                      className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${badge.className}`}
+                      className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${badge.className}`}
                       title={clip.transcriptionError || undefined}
                     >
                       {badge.label}
@@ -115,7 +115,7 @@ export function CreationEditor({ onRetranscribe, busyClipId }: {
               />
               {/* A1：转写失败时保留录音，并在这里给出原因与重试入口 */}
               {clip.transcriptionStatus === 'failed' && clip.transcriptionError && (
-                <div className="mx-3 mb-2 rounded-md border border-red-500/20 bg-red-500/5 px-2 py-1 text-[11px] text-red-600 dark:text-red-300">
+                <div className="mx-3 mb-2 rounded-md border border-red-500/20 bg-red-500/5 px-2 py-1 text-xs text-red-600 dark:text-red-300">
                   {clip.transcriptionError}
                 </div>
               )}

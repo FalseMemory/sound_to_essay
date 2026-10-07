@@ -238,7 +238,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </div>
           <button
             onClick={() => void handleSave()}
-            className="shrink-0 rounded-lg bg-[var(--accent)] px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition hover:bg-[var(--accent-hover)]"
+            className="btn btn-md btn-primary shrink-0"
           >
             保存设置
           </button>
@@ -288,7 +288,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                 </div>
                 <button
                   onClick={chooseModelDirectory}
-                  className="rounded-md border border-[var(--border)] bg-[var(--bg-tertiary)] px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--text-primary)]"
+                  className="btn btn-sm btn-secondary"
                 >
                   选择文件夹
                 </button>
@@ -315,9 +315,9 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-semibold text-[var(--text-primary)]">{model.name}</span>
                             {isCurrent && (
-                              <span className="rounded-full bg-[var(--accent)]/20 px-2 py-0.5 text-[10px] text-[var(--accent)]">当前使用</span>
+                              <span className="rounded-full bg-[var(--accent)]/20 px-2 py-0.5 text-xs text-[var(--accent)]">当前使用</span>
                             )}
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] ${
+                            <span className={`rounded-full px-2 py-0.5 text-xs ${
                               model.installed
                                 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300'
                                 : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'
@@ -326,7 +326,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                             </span>
                           </div>
                           <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{model.description}</p>
-                          <div className="mt-2 text-[11px] text-[var(--text-secondary)]">预计占用约 {model.sizeMb} MB</div>
+                          <div className="mt-2 text-xs text-[var(--text-secondary)]">预计占用约 {model.sizeMb} MB</div>
                         </div>
                         <div className="flex shrink-0 gap-2">
                           {isDownloading ? (
@@ -348,7 +348,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                               )}
                               <button
                                 onClick={() => handleDelete(model.id)}
-                                className="rounded-md border border-red-300 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-300 dark:hover:bg-red-500/10"
+                                className="btn btn-sm btn-danger"
                               >
                                 删除
                               </button>
@@ -365,7 +365,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                       </div>
                       {isDownloading && (
                         <div className="mt-3">
-                          <div className="mb-1 flex justify-between text-[11px] text-[var(--text-secondary)]">
+                          <div className="mb-1 flex justify-between text-xs text-[var(--text-secondary)]">
                             <span>
                               {itemProgress?.status === 'connecting'
                                 ? '正在连接下载源...'
@@ -433,7 +433,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                       }`}
                     >
                       <div className="text-sm font-medium">{item.label}</div>
-                      <div className="mt-0.5 text-[11px] opacity-75">{item.detail}</div>
+                      <div className="mt-0.5 text-xs opacity-75">{item.detail}</div>
                     </button>
                   );
                 })}
@@ -525,7 +525,7 @@ function LLMConfigSection({ label, caption, config, onChange }: { label: string;
         </div>
         <button
           onClick={testConnection}
-          className="rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--text-primary)]"
+          className="btn btn-sm btn-secondary"
         >
           测试连接
         </button>

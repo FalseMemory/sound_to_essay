@@ -178,7 +178,7 @@ export function MemoryEditor({ memory, onSaved, onCancel }: MemoryEditorProps) {
             onChange={(event) => setRecordedAt(event.target.value)}
             className={inputClass}
           />
-          <p className="mt-1 text-[11px] text-[var(--text-secondary)]">留空表示未记录时间。</p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">留空表示未记录时间。</p>
         </div>
 
         <div>
@@ -207,7 +207,7 @@ export function MemoryEditor({ memory, onSaved, onCancel }: MemoryEditorProps) {
               </button>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+          <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">
             模糊时间会按原文保存，不会被强行换算成精确日期。
           </p>
         </div>
@@ -281,7 +281,7 @@ export function MemoryEditor({ memory, onSaved, onCancel }: MemoryEditorProps) {
       </button>
 
       {!isNew && (
-        <p className="mt-3 text-center text-[11px] leading-relaxed text-[var(--text-secondary)]">
+        <p className="mt-3 text-center text-xs leading-relaxed text-[var(--text-secondary)]">
           修改会作为新修订保存（修订号 +1），记录标识保持不变，导入电脑后仍能正确对应。
         </p>
       )}

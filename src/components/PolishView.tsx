@@ -57,13 +57,13 @@ export function PolishView() {
           {adopted && <span className="text-xs text-emerald-600 dark:text-emerald-400">已采用</span>}
           <button
             onClick={() => setPolishedText('')}
-            className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:border-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            className="btn btn-sm btn-secondary"
           >
             重新整理
           </button>
           <button
             onClick={() => { setPolishedText(editText); setAdopted(true); }}
-            className="rounded-lg bg-[var(--success)] px-3 py-1 text-xs text-white transition hover:brightness-110"
+            className="btn btn-sm btn-success"
           >
             确认采用
           </button>

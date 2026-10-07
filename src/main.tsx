@@ -25,7 +25,7 @@ function BrowserFallback() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] p-8">
       <div className="w-full max-w-xl rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-8">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--accent)]">Voice to Essay</div>
+        <div className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Voice to Essay</div>
         <h1 className="mt-2 text-xl font-bold text-[var(--text-primary)]">请在桌面应用中打开</h1>
         <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)]">
           当前页面是在浏览器中打开的。声文依赖桌面应用（Tauri）提供数据库、录音与转写能力，

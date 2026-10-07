@@ -88,7 +88,7 @@ export function StyleSelector() {
     <>
       <button
         onClick={() => setShow(true)}
-        className="px-4 py-1.5 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] transition disabled:opacity-50 flex items-center gap-2"
+        className="btn btn-md btn-primary flex items-center gap-2"
         disabled={isGenerating}
       >
         {isGenerating ? (
@@ -162,13 +162,13 @@ export function StyleSelector() {
               <button
                 onClick={() => setShow(false)}
                 disabled={isGenerating}
-                className="px-4 py-2 rounded-lg bg-[var(--bg-tertiary)] text-sm hover:bg-[var(--border)] transition disabled:opacity-50"
+                className="btn btn-md btn-secondary"
               >
                 取消
               </button>
               <button
                 onClick={handleGenerate}
-                className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] transition disabled:opacity-50"
+                className="btn btn-md btn-primary"
                 disabled={isGenerating || (!selectedStyle && !customPrompt.trim())}
               >
                 {isGenerating ? '生成中...' : '生成散文'}

@@ -478,7 +478,7 @@ export function RecordView({ onSaved }: { onSaved: () => void }) {
         <div className="wrap-anywhere mb-5 w-full max-w-md rounded-2xl border border-[var(--warning)]/40 bg-[var(--warning)]/10 px-4 py-3">
           <p className="text-xs font-semibold text-[var(--warning)]">{diagnosis.reason}</p>
           <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-primary)]">{diagnosis.hint}</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+          <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
             「我的素材」与「设置」仍然可以正常使用。
           </p>
         </div>
@@ -509,7 +509,7 @@ export function RecordView({ onSaved }: { onSaved: () => void }) {
           {canRecord && state === 'error' && '本次录音未保存'}
         </p>
         {canRecord && (isRecording || isPaused) && chunkCountRef.current > 0 && (
-          <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
+          <p className="mt-2 text-xs text-[var(--text-secondary)]">
             已收到（正在依次保存）{chunkCountRef.current} 个分片（{formatBytes(chunkBytesRef.current)}）
           </p>
         )}

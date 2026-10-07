@@ -212,14 +212,14 @@ export function SettingsView() {
             </button>
           )}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+        <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
           只记录数量、时长与错误类别，<b className="text-[var(--text-primary)]">不包含你口述的内容</b>。
           遇到问题时可以把这里的内容提供给开发者。
         </p>
 
         {showDiag && diagEntries.length > 0 && (
           <>
-            <pre className="wrap-anywhere mt-3 max-h-56 overflow-auto rounded-xl bg-[var(--bg-tertiary)] p-3 text-[10px] leading-relaxed text-[var(--text-primary)]">
+            <pre className="wrap-anywhere mt-3 max-h-56 overflow-auto rounded-xl bg-[var(--bg-tertiary)] p-3 text-xs leading-relaxed text-[var(--text-primary)]">
               {formatDiagnostics(diagEntries.slice(-30))}
             </pre>
             <div className="mt-3 flex gap-2">
@@ -240,11 +240,11 @@ export function SettingsView() {
         )}
 
         {diagNotice && (
-          <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">{diagNotice}</p>
+          <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">{diagNotice}</p>
         )}
       </section>
 
-      <p className="mt-6 text-center text-[10px] leading-relaxed text-[var(--text-secondary)]">
+      <p className="mt-6 text-center text-xs leading-relaxed text-[var(--text-secondary)]">
         声文 · 手机记录端 · 素材仅存于本机浏览器
       </p>
     </div>

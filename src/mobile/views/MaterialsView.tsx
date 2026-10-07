@@ -339,7 +339,7 @@ export function MaterialsView({ version, onChanged }: { version: number; onChang
         className="hidden"
         onChange={(event) => void handleImportFiles(event.target.files)}
       />
-      <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+      <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
         可以导入手机里已有的录音（语音备忘录、微信语音、录音笔文件等）。
         本机放不了的格式也会完整保存，导出到电脑后再处理。
       </p>
@@ -459,11 +459,11 @@ export function MaterialsView({ version, onChanged }: { version: number; onChang
               )}
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="rounded-md border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
+                <span className="rounded-md border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
                   本机保存
                 </span>
                 <span
-                  className={`rounded-md border px-2 py-0.5 text-[10px] ${
+                  className={`rounded-md border px-2 py-0.5 text-xs ${
                     memory.lastExportedAt
                       ? 'border-[var(--success)]/30 bg-[var(--success)]/10 text-[var(--success)]'
                       : 'border-[var(--border)] text-[var(--text-secondary)]'
@@ -474,7 +474,7 @@ export function MaterialsView({ version, onChanged }: { version: number; onChang
                 {memory.people.map((person) => (
                   <span
                     key={person}
-                    className="rounded-md bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] text-[var(--accent)]"
+                    className="rounded-md bg-[var(--accent-soft)] px-2 py-0.5 text-xs text-[var(--accent)]"
                   >
                     {person}
                   </span>
@@ -508,7 +508,7 @@ export function MaterialsView({ version, onChanged }: { version: number; onChang
       </ul>
 
       {items.length > 0 && (
-        <p className="mt-6 text-center text-[11px] leading-relaxed text-[var(--text-secondary)]">
+        <p className="mt-6 text-center text-xs leading-relaxed text-[var(--text-secondary)]">
           导出后手机上的素材<b className="text-[var(--text-primary)]">不会被自动删除</b>，可以放心多次导出。
           {withAudio.length < items.length && ' 纯文字素材也能一起导出。'}
         </p>
