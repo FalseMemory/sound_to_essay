@@ -161,12 +161,6 @@ function App() {
       {/* ===== Top bar ===== */}
       <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-[var(--border)] bg-[var(--bg-secondary)] px-6">
         <div className="flex min-w-0 items-center gap-6">
-          {/* Brand */}
-          <div className="flex shrink-0 items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-base font-bold text-white shadow-sm shadow-blue-500/20">声</div>
-            <span className="text-[15px] font-bold text-[var(--text-primary)]">声文</span>
-          </div>
-
           {/* Top nav (horizontal) */}
           <nav className="flex items-center gap-1 rounded-lg bg-[var(--bg-tertiary)] p-1">
             {navItems.map((item) => {
