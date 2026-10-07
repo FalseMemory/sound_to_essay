@@ -130,7 +130,8 @@ export function LibraryView() {
   const [tagsList, setTagsList] = useState<string[]>([]);
   const [locationsList, setLocationsList] = useState<string[]>([]);
   const [showDeleteProjectConfirm, setShowDeleteProjectConfirm] = useState(false);
-  const [showRemoveMemoryConfirm, setShowRemoveMemoryConfirm] = useState(false);
+  // L2.5c：删除目标（带标题）——确认框显示标题，杜绝"想删 A 删了 B"
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; title: string } | null>(null);
   // A1：转写任务状态来自数据库，不依赖内存中的临时变量，因此重启后仍能看到
   // "待转写 / 转写失败"并重新转写。
   const [tasks, setTasks] = useState<TranscriptionTask[]>([]);
@@ -663,13 +664,15 @@ export function LibraryView() {
   };
 
   const removeMemory = () => {
-    setShowRemoveMemoryConfirm(true);
+    if (!detail) return;
+    // L2.5c：确认框带标题——用户能在确认时发现"要删的不是我想删的那条"
+    setRemoveTarget({ id: detail.id, title: detail.title });
   };
 
   const confirmRemoveMemory = async () => {
-    setShowRemoveMemoryConfirm(false);
-    if (!detail) return;
-    await invoke('delete_memory', { memoryId: detail.id });
+    if (!removeTarget) return;
+    await invoke('delete_memory', { memoryId: removeTarget.id });
+    setRemoveTarget(null);
     setDetail(null); setSelectedId('');
     await loadMemories(projectId);
   };
@@ -784,13 +787,13 @@ export function LibraryView() {
         onCancel={() => setShowDeleteProjectConfirm(false)}
       />
       <ConfirmDialog
-        open={showRemoveMemoryConfirm}
+        open={!!removeTarget}
         title="移入回收站"
         danger
         confirmLabel="移入回收站"
-        message="确定将这条记忆移入回收站吗？移入后仍可在「显示已删除」中恢复。"
+        message={removeTarget ? `确定将「${removeTarget.title}」移入回收站吗？移入后仍可在「显示已删除」中恢复。` : ''}
         onConfirm={() => void confirmRemoveMemory()}
-        onCancel={() => setShowRemoveMemoryConfirm(false)}
+        onCancel={() => setRemoveTarget(null)}
       />
       {/* A3：恢复备份的二次确认（替换式恢复，必须先确认） */}
       <ConfirmDialog
@@ -918,10 +921,21 @@ export function LibraryView() {
               {browseList.map((memory) => {
                 const badge = transcriptionBadge(taskForMemory(memory.id));
                 return (
-                  <button key={memory.id} onClick={() => void selectMemory(memory.id)} className={`group w-full rounded-xl border p-3 text-left transition-all ${selectedId === memory.id ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 shadow-sm' : 'border-transparent hover:bg-[var(--bg-tertiary)] hover:border-[var(--border)]'}`}>
+                  // L2.5c：外层从 <button> 改为 <div role="button">——此前用户把列表项
+                  // 右上角的 🎙（含音频标记）误当删除按钮，而真正的删除入口在右栏且
+                  // 作用于"当前打开的记忆"，导致想删 A 结果删了已在右栏的 B。
+                  // 现在列表项自带删除按钮（hover 显现、确认框显示标题）。
+                  <div key={memory.id} role="button" tabIndex={0} onClick={() => void selectMemory(memory.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void selectMemory(memory.id); } }} className={`group relative w-full cursor-pointer rounded-xl border p-3 text-left transition-all ${selectedId === memory.id ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 shadow-sm' : 'border-transparent hover:bg-[var(--bg-tertiary)] hover:border-[var(--border)]'}`}>
+                    <button
+                      onClick={(event) => { event.stopPropagation(); setRemoveTarget({ id: memory.id, title: memory.title }); }}
+                      className="absolute right-2 top-2 z-10 rounded-md p-1 text-[var(--text-secondary)] opacity-0 transition hover:bg-red-500/10 hover:text-red-600 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-red-400"
+                      title="移入回收站"
+                    >
+                      {icons.trash}
+                    </button>
                     <div className="flex items-start justify-between gap-2">
                       <div className="truncate text-sm font-medium text-[var(--text-primary)]">{memory.title}</div>
-                      {memory.audioCount > 0 && <span className="shrink-0 text-xs opacity-60">🎙</span>}
+                      {memory.audioCount > 0 && <span className="shrink-0 text-xs opacity-60" title={`含 ${memory.audioCount} 条音频`}>🎙</span>}
                     </div>
                     <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{memory.eventDateText || formatDate(memory.audioRecordedAt)}</div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -929,7 +943,7 @@ export function LibraryView() {
                       {badge && <span className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${badge.className}`}>{badge.label}</span>}
                       {memory.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-md bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">#{tag}</span>)}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
               {browseList.length === 0 && (
