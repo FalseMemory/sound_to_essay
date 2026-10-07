@@ -39,12 +39,11 @@
   --accent-soft: #16243d;  /* dark blue tint */
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* ⚠️ 不要在这里写 `* { margin: 0; padding: 0 }` 之类的手写 reset！
+ * 它是**无 layer 样式**，优先级高于 Tailwind v4 @layer utilities 里的全部
+ * margin-*/padding-* 工具类——2026-10-07 实测把全应用的 mx-auto / space-y-*
+ * 全部压死（设置页贴左的根因）。margin/padding 重置交给 preflight（@layer base）。
+ */
 html, body, #root {
   height: 100%;
   width: 100%;
