@@ -448,6 +448,7 @@ export function LibraryView() {
               'ape', 'wv', 'gsm', 'sln', 'ac3', 'dts',
             ],
           },
+          { name: '所有文件', extensions: ['*'] },
         ],
         multiple: true,
       });
@@ -472,7 +473,12 @@ export function LibraryView() {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
-        filters: [{ name: '声文素材包', extensions: ['svpack'] }],
+        // L2.5b：加「所有文件」兜底——有用户反馈在对话框里看不到目录下的
+        // 素材包（可能是过滤器/目录状态问题）。选错类型由后端校验兜底报错。
+        filters: [
+          { name: '声文素材包', extensions: ['svpack'] },
+          { name: '所有文件', extensions: ['*'] },
+        ],
         multiple: false,
       });
       const filePath = Array.isArray(selected) ? selected[0] : selected;
