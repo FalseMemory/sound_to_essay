@@ -122,7 +122,7 @@ export function LibraryView() {
   const [transcribing, setTranscribing] = useState(false);
   const [notice, setNotice] = useState('');
   const [textDraft, setTextDraft] = useState('');
-  const [browseMode, setBrowseMode] = useState<'list' | 'people' | 'locations' | 'tags' | 'chapters' | 'timeline'>('list');
+  const [browseMode, setBrowseMode] = useState<'list' | 'chapters' | 'timeline'>('list');
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [chapterDetail, setChapterWithDrafts] = useState<ChapterWithDrafts | null>(null);
@@ -148,9 +148,13 @@ export function LibraryView() {
   const [packNotice, setPackNotice] = useState('');
   // A3：加载记忆详情时保存一份原始快照，用于判断元数据是否有未保存改动。
   const [originalSnapshot, setOriginalSnapshot] = useState<MemoryDetail | null>(null);
-  // A3：人物/地点/标签的选中值。与"选中的记忆"（selectedId）分离，
-  // 这样按人物筛选后打开某条记忆，返回时筛选条件仍保持选中。
-  const [browseFilter, setBrowseFilter] = useState('');
+  // L2：人物/地点/标签从「独立浏览模式」降为记忆列表的筛选下拉。
+  // 与"选中的记忆"（selectedId）分离，筛选后打开某条记忆，返回时条件仍保持。
+  const [personFilter, setPersonFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
+  // L2：左栏「资料库工具」折叠区（导入/备份/导出/删除项目）。默认收起。
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   const rememberLibrarySelection = (id: string) => {
     try { window.localStorage.setItem(LIBRARY_SELECTION_KEY, id); } catch { /* 隐私模式等写入失败可忽略 */ }
@@ -251,8 +255,12 @@ export function LibraryView() {
     if (statusFilter && memory.status !== statusFilter) return false;
     if (timeFilter === 'dated' && !memory.eventDateText) return false;
     if (timeFilter === 'undated' && memory.eventDateText) return false;
+    // L2：人物/地点/标签从独立模式改为这里的筛选下拉。
+    if (personFilter && !memory.people.includes(personFilter)) return false;
+    if (locationFilter && memory.location !== locationFilter) return false;
+    if (tagFilter && !memory.tags.includes(tagFilter)) return false;
     return true;
-  }), [memories, statusFilter, timeFilter]);
+  }), [memories, statusFilter, timeFilter, personFilter, locationFilter, tagFilter]);
 
   const createLibraryProject = async () => {
     const name = window.prompt('回忆录项目名称', '我的口述史');
@@ -745,32 +753,12 @@ export function LibraryView() {
   };
 
   const browseModes: { mode: typeof browseMode; label: string; icon: React.ReactNode }[] = [
-    { mode: 'list', label: '全部记忆', icon: icons.list },
-    { mode: 'people', label: '人物', icon: icons.people },
-    { mode: 'locations', label: '地点', icon: icons.locations },
-    { mode: 'tags', label: '标签', icon: icons.tags },
+    { mode: 'list', label: '记忆', icon: icons.list },
     { mode: 'chapters', label: '章节', icon: icons.chapters },
     { mode: 'timeline', label: '时间线', icon: icons.timeline },
   ];
 
-  const filterMemoriesByBrowse = (list: MemorySummary[]) => {
-    if (browseMode === 'list') return list;
-    if (browseMode === 'people') {
-      if (!browseFilter) return [];
-      return list.filter((m) => m.people.includes(browseFilter));
-    }
-    if (browseMode === 'locations') {
-      if (!browseFilter) return [];
-      return list.filter((m) => m.location === browseFilter);
-    }
-    if (browseMode === 'tags') {
-      if (!browseFilter) return [];
-      return list.filter((m) => m.tags.includes(browseFilter));
-    }
-    return list;
-  };
-
-  const browseList = filterMemoriesByBrowse(visibleMemories);
+  const browseList = visibleMemories;
 
   return (
     <div className="flex min-h-0 flex-1 bg-[var(--bg-primary)]">
@@ -822,21 +810,28 @@ export function LibraryView() {
             <option value="">选择资料库项目</option>
             {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
           </select>
-          {projectId && (
-            <button
-              onClick={() => deleteLibraryProject()}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-500/10 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
-              title="删除当前资料库项目及其全部记忆与章节"
+          {/* L2：左栏顶部原先堆了项目/导入/备份/导出四个区块，加一条红字「删除当前项目」，
+              视觉上全是小标题+小按钮，用户反馈「混杂」。现合并为一个**默认收起**的
+              「资料库工具」折叠区：低频操作收进去，主浏览路径（下拉→模式→列表）一屏读完。
+              有进行中的导入/恢复预览时强制展开，避免状态被藏起来。 */}
+          <button
+            onClick={() => setToolsOpen((open) => !open)}
+            className="btn btn-sm btn-secondary w-full justify-between"
+            aria-expanded={toolsOpen}
+          >
+            <span>资料库工具</span>
+            <svg
+              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className={`transition-transform ${toolsOpen ? 'rotate-180' : ''}`}
             >
-              {icons.trash}
-              删除当前项目
-            </button>
-          )}
-
-          {/* 导入入口：常驻在此，避免用户切到「章节」模式才找得到 */}
-          {projectId && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
-              <div className="text-xs font-semibold text-[var(--text-secondary)]">导入到本资料库</div>
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          {(toolsOpen || !!packPreview || importCandidates.length > 0 || !!restorePreview) && (
+            <>
+              {projectId && (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
+                  <div className="text-xs font-semibold text-[var(--text-secondary)]">导入到本资料库</div>
               <div className="flex gap-2">
                 <button
                   onClick={() => void choosePackFile()}
@@ -946,6 +941,21 @@ export function LibraryView() {
               合订所有章节，保留来源记忆清单便于溯源
             </div>
           </div>
+
+              {/* L2：危险操作收进工具区——此前红字「删除当前项目」紧贴项目下拉，
+                  误触风险高、视觉上喧宾夺主。移入折叠区末尾 + ConfirmDialog 保护。 */}
+              {projectId && (
+                <button
+                  onClick={() => deleteLibraryProject()}
+                  className="btn btn-sm btn-danger w-full"
+                  title="删除当前资料库项目及其全部记忆与章节"
+                >
+                  {icons.trash}
+                  删除当前项目
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Browse mode switcher - modern segmented control */}
@@ -954,7 +964,7 @@ export function LibraryView() {
             {browseModes.map(({ mode, label, icon }) => (
               <button
                 key={mode}
-                onClick={() => { setBrowseMode(mode); setSelectedChapterId(''); setChapterWithDrafts(null); setSelectedId(''); setBrowseFilter(''); }}
+                onClick={() => { setBrowseMode(mode); setSelectedChapterId(''); setChapterWithDrafts(null); setSelectedId(''); setPersonFilter(''); setLocationFilter(''); setTagFilter(''); }}
                 className={`flex flex-col items-center justify-center gap-1.5 rounded-lg px-2 py-3 text-sm font-medium transition-all ${
                   browseMode === mode
                     ? 'bg-[var(--accent)] text-white shadow-sm shadow-blue-500/20'
@@ -991,47 +1001,29 @@ export function LibraryView() {
           )}
 
           {/* 回收站开关：在记忆列表相关视图始终可见，确保「移入回收站」的记忆可被找回 */}
-          {(browseMode === 'list' || browseMode === 'people' || browseMode === 'locations' || browseMode === 'tags' || browseMode === 'timeline') && (
+          {browseMode !== 'chapters' && (
             <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer">
               <input type="checkbox" checked={showDeleted} onChange={(event) => setShowDeleted(event.target.checked)} className="rounded border-[var(--border)] bg-[var(--bg-tertiary)]" />
               显示已删除
             </label>
           )}
 
-          {/* Browse-mode-specific sub-lists */}
-          {browseMode === 'people' && (
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-[var(--text-secondary)] mb-2">选择人物</div>
-              {peopleList.map((person) => (
-                <button key={person} onClick={() => setBrowseFilter(person)} className={`w-full text-left rounded-lg px-3 py-2 text-sm transition ${browseFilter === person ? 'bg-[var(--accent)]/15 text-[var(--accent)] font-medium' : 'text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'}`}>
-                  {person}
-                </button>
-              ))}
-              {peopleList.length === 0 && <p className="text-xs text-[var(--text-secondary)]">暂无人物数据</p>}
-            </div>
-          )}
-          {browseMode === 'locations' && (
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-[var(--text-secondary)] mb-2">选择地点</div>
-              {locationsList.map((loc) => (
-                <button key={loc} onClick={() => setBrowseFilter(loc)} className={`w-full text-left rounded-lg px-3 py-2 text-sm transition ${browseFilter === loc ? 'bg-[var(--accent)]/15 text-[var(--accent)] font-medium' : 'text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'}`}>
-                  {loc}
-                </button>
-              ))}
-              {locationsList.length === 0 && <p className="text-xs text-[var(--text-secondary)]">暂无地点数据</p>}
-            </div>
-          )}
-          {browseMode === 'tags' && (
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-[var(--text-secondary)] mb-2">选择标签</div>
-              <div className="flex flex-wrap gap-1.5">
-                {tagsList.map((tag) => (
-                  <button key={tag} onClick={() => setBrowseFilter(tag)} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${browseFilter === tag ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
-                    #{tag}
-                  </button>
-                ))}
-              </div>
-              {tagsList.length === 0 && <p className="text-xs text-[var(--text-secondary)]">暂无标签数据</p>}
+          {/* L2：人物/地点/标签筛选——从三个独立浏览模式降为记忆列表的筛选下拉，
+              与上方状态/时间筛选同一层。模式数量 6→3，认知负担显著降低。 */}
+          {browseMode === 'list' && (
+            <div className="grid grid-cols-3 gap-2">
+              <select value={personFilter} onChange={(event) => setPersonFilter(event.target.value)} className="control w-full text-xs">
+                <option value="">全部人物</option>
+                {peopleList.map((person) => <option key={person} value={person}>{person}</option>)}
+              </select>
+              <select value={locationFilter} onChange={(event) => setLocationFilter(event.target.value)} className="control w-full text-xs">
+                <option value="">全部地点</option>
+                {locationsList.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+              </select>
+              <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="control w-full text-xs">
+                <option value="">全部标签</option>
+                {tagsList.map((tag) => <option key={tag} value={tag}>#{tag}</option>)}
+              </select>
             </div>
           )}
           {browseMode === 'chapters' && (
@@ -1057,10 +1049,10 @@ export function LibraryView() {
           )}
 
           {/* Memory list */}
-          {(browseMode === 'list' || browseMode === 'people' || browseMode === 'locations' || browseMode === 'tags') && (
+          {browseMode === 'list' && (
             <div className="space-y-1.5 pt-1">
               <div className="text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                {browseMode === 'list' ? '记忆列表' : `相关记忆 (${browseList.length})`}
+                记忆列表
               </div>
               {browseList.map((memory) => {
                 const badge = transcriptionBadge(taskForMemory(memory.id));
