@@ -153,8 +153,6 @@ export function LibraryView() {
   const [personFilter, setPersonFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
-  // L2：左栏「资料库工具」折叠区（导入/备份/导出/删除项目）。默认收起。
-  const [toolsOpen, setToolsOpen] = useState(false);
 
   const rememberLibrarySelection = (id: string) => {
     try { window.localStorage.setItem(LIBRARY_SELECTION_KEY, id); } catch { /* 隐私模式等写入失败可忽略 */ }
@@ -760,6 +758,9 @@ export function LibraryView() {
 
   const browseList = visibleMemories;
 
+  // L2.5：当前选中资料库项目的完整对象（右栏详情卡用）。
+  const currentProject = projects.find((project) => project.id === projectId) ?? null;
+
   return (
     <div className="flex min-h-0 flex-1 bg-[var(--bg-primary)]">
       <ConfirmDialog
@@ -810,152 +811,6 @@ export function LibraryView() {
             <option value="">选择资料库项目</option>
             {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
           </select>
-          {/* L2：左栏顶部原先堆了项目/导入/备份/导出四个区块，加一条红字「删除当前项目」，
-              视觉上全是小标题+小按钮，用户反馈「混杂」。现合并为一个**默认收起**的
-              「资料库工具」折叠区：低频操作收进去，主浏览路径（下拉→模式→列表）一屏读完。
-              有进行中的导入/恢复预览时强制展开，避免状态被藏起来。 */}
-          <button
-            onClick={() => setToolsOpen((open) => !open)}
-            className="btn btn-sm btn-secondary w-full justify-between"
-            aria-expanded={toolsOpen}
-          >
-            <span>资料库工具</span>
-            <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className={`transition-transform ${toolsOpen ? 'rotate-180' : ''}`}
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </button>
-          {(toolsOpen || !!packPreview || importCandidates.length > 0 || !!restorePreview) && (
-            <>
-              {projectId && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
-                  <div className="text-xs font-semibold text-[var(--text-secondary)]">导入到本资料库</div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => void choosePackFile()}
-                  className="btn btn-sm btn-secondary flex-1"
-                  title="导入手机导出的 .svpack 素材包"
-                >
-                  素材包…
-                </button>
-                <button
-                  onClick={() => void chooseImportFiles()}
-                  className="btn btn-sm btn-secondary flex-1"
-                  title="直接导入电脑上的音频文件"
-                >
-                  音频文件…
-                </button>
-              </div>
-
-              {packNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{packNotice}</div>}
-              {packPreview && (
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
-                  <div className="text-xs text-[var(--text-primary)]">
-                    记录 {packPreview.recordCount} 条 · 音频 {packPreview.audioCount} 个
-                    {packPreview.duplicates > 0 && ` · 重复 ${packPreview.duplicates}`}
-                    {packPreview.updates > 0 && ` · 将更新 ${packPreview.updates}`}
-                    {packPreview.conflicts > 0 && ` · 冲突 ${packPreview.conflicts}`}
-                    {packPreview.missingAudio > 0 && ` · 缺失音频 ${packPreview.missingAudio}`}
-                  </div>
-                  <div className="text-xs text-[var(--text-secondary)]">
-                    导出时间：{formatDate(packPreview.exportedAt)} · 协议 v{packPreview.formatVersion}
-                  </div>
-                  <button onClick={() => void runPackImport()} className="btn btn-sm btn-primary">
-                    导入此素材包
-                  </button>
-                </div>
-              )}
-
-              {importNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{importNotice}</div>}
-              {importCandidates.map((candidate) => (
-                <div key={candidate.sourcePath} className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-xs font-medium text-[var(--text-primary)]">{candidate.fileName}</div>
-                      <div className="text-xs text-[var(--text-secondary)]">
-                        {candidate.format.toUpperCase()}
-                        {candidate.durationSecs != null && ` · ${candidate.durationSecs.toFixed(1)}s`}
-                        {candidate.sampleRate != null && ` · ${candidate.sampleRate}Hz`}
-                        {candidate.alreadyImported && ' · 已导入'}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => void runImport(candidate)}
-                      disabled={!!candidate.error || candidate.alreadyImported}
-                      className="btn btn-sm btn-primary shrink-0"
-                    >
-                      导入
-                    </button>
-                  </div>
-                  {candidate.error && <div className="text-xs text-red-600 dark:text-red-300">{candidate.error}</div>}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* A3：备份与恢复入口。**常驻在此，且不受 projectId 约束**——它针对整库，
-              与当前选中哪个项目无关。此前它被写在 browseMode === 'chapters' 分支里，
-              只有切到「章节」模式才看得见，用户根本找不到（2026-10-06 实测）。
-              与上面导入入口的修法一致：低频但关键的操作要常驻、要能被找到。 */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-[var(--text-secondary)]">备份与恢复</div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => void createBackup()} className="btn btn-sm btn-ghost">创建备份</button>
-                <button onClick={() => void chooseRestoreFile()} className="btn btn-sm btn-ghost">恢复…</button>
-              </div>
-            </div>
-            {backupNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{backupNotice}</div>}
-            {restorePreview && (
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2 space-y-1">
-                <div className="text-xs text-[var(--text-primary)]">
-                  备份时间：{formatDate(restorePreview.createdAt)} · 音频 {restorePreview.audioCount} 个
-                  {restorePreview.audioMissingLocally > 0 && ` · 本地缺失 ${restorePreview.audioMissingLocally} 个`}
-                </div>
-                <button onClick={() => requestRestore()} className="btn btn-sm btn-primary">
-                  恢复此备份
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* 导出整本：E3 第 8 步的核心动作，同样**常驻**。
-              它原本和「+ 新建」一起待在 browseMode === 'chapters' 分支里，
-              用户直到导出测试时才「发现这个按钮」（2026-10-06）——
-              这是继导入入口、备份入口之后**同一类问题的第三次**。
-              低频但关键的操作一律常驻，不依赖用户恰好切对模式。 */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-[var(--text-secondary)]">导出</div>
-              <button
-                onClick={() => void exportBook()}
-                title="导出整本回忆录为单个 Markdown，各章节保留来源记忆清单"
-                className="btn btn-sm btn-ghost"
-              >
-                导出整本 Markdown…
-              </button>
-            </div>
-            <div className="mt-1 text-xs text-[var(--text-secondary)]">
-              合订所有章节，保留来源记忆清单便于溯源
-            </div>
-          </div>
-
-              {/* L2：危险操作收进工具区——此前红字「删除当前项目」紧贴项目下拉，
-                  误触风险高、视觉上喧宾夺主。移入折叠区末尾 + ConfirmDialog 保护。 */}
-              {projectId && (
-                <button
-                  onClick={() => deleteLibraryProject()}
-                  className="btn btn-sm btn-danger w-full"
-                  title="删除当前资料库项目及其全部记忆与章节"
-                >
-                  {icons.trash}
-                  删除当前项目
-                </button>
-              )}
-            </>
-          )}
         </div>
 
         {/* Browse mode switcher - modern segmented control */}
@@ -1099,7 +954,83 @@ export function LibraryView() {
       </aside>
 
       {/* Main content */}
-      <main className="min-w-0 flex-1 overflow-y-auto p-6">
+      <main className="min-w-0 flex-1 flex flex-col">
+        {/* L2.5：资料库级常规操作移到右栏顶部——这是全局操作的标准位置；
+            左栏因此只剩纯浏览路径（项目 → 模式 → 搜索筛选 → 列表）。 */}
+        <div className="shrink-0 border-b border-[var(--border)] bg-[var(--bg-secondary)] px-6 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => void choosePackFile()} disabled={!projectId} className="btn btn-sm btn-secondary" title="导入手机导出的 .svpack 素材包">素材包…</button>
+            <button onClick={() => void chooseImportFiles()} disabled={!projectId} className="btn btn-sm btn-secondary" title="直接导入电脑上的音频文件">音频文件…</button>
+            <div className="h-5 w-px bg-[var(--border)]" />
+            <button onClick={() => void createBackup()} className="btn btn-sm btn-secondary" title="创建整库备份（.svbak，含全部音频）">创建备份</button>
+            <button onClick={() => void chooseRestoreFile()} className="btn btn-sm btn-secondary" title="从 .svbak 备份恢复整库">恢复…</button>
+            <div className="h-5 w-px bg-[var(--border)]" />
+            <button onClick={() => void exportBook()} disabled={!projectId} className="btn btn-sm btn-secondary" title="导出整本回忆录为单个 Markdown，各章节保留来源记忆清单">导出整本…</button>
+            <div className="ml-auto" />
+            {projectId && (
+              <button onClick={() => deleteLibraryProject()} className="btn btn-sm btn-danger" title="删除当前资料库项目及其全部记忆与章节">
+                {icons.trash}
+                删除项目
+              </button>
+            )}
+          </div>
+          {/* 导入 / 恢复的瞬时状态卡：有内容才渲染 */}
+          {(packNotice || packPreview || importNotice || importCandidates.length > 0 || backupNotice || restorePreview) && (
+            <div className="mt-3 space-y-2">
+              {packNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{packNotice}</div>}
+              {packPreview && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-1">
+                  <div className="text-xs text-[var(--text-primary)]">
+                    记录 {packPreview.recordCount} 条 · 音频 {packPreview.audioCount} 个
+                    {packPreview.duplicates > 0 && ` · 重复 ${packPreview.duplicates}`}
+                    {packPreview.updates > 0 && ` · 将更新 ${packPreview.updates}`}
+                    {packPreview.conflicts > 0 && ` · 冲突 ${packPreview.conflicts}`}
+                    {packPreview.missingAudio > 0 && ` · 缺失音频 ${packPreview.missingAudio}`}
+                  </div>
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    导出时间：{formatDate(packPreview.exportedAt)} · 协议 v{packPreview.formatVersion}
+                  </div>
+                  <button onClick={() => void runPackImport()} className="btn btn-sm btn-primary">导入此素材包</button>
+                </div>
+              )}
+              {importNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{importNotice}</div>}
+              {importCandidates.map((candidate) => (
+                <div key={candidate.sourcePath} className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-2 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-medium text-[var(--text-primary)]">{candidate.fileName}</div>
+                      <div className="text-xs text-[var(--text-secondary)]">
+                        {candidate.format.toUpperCase()}
+                        {candidate.durationSecs != null && ` · ${candidate.durationSecs.toFixed(1)}s`}
+                        {candidate.sampleRate != null && ` · ${candidate.sampleRate}Hz`}
+                        {candidate.alreadyImported && ' · 已导入'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => void runImport(candidate)}
+                      disabled={!!candidate.error || candidate.alreadyImported}
+                      className="btn btn-sm btn-primary shrink-0"
+                    >
+                      导入
+                    </button>
+                  </div>
+                  {candidate.error && <div className="text-xs text-red-600 dark:text-red-300">{candidate.error}</div>}
+                </div>
+              ))}
+              {backupNotice && <div className="text-xs text-[var(--text-secondary)] break-all">{backupNotice}</div>}
+              {restorePreview && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3 space-y-1">
+                  <div className="text-xs text-[var(--text-primary)]">
+                    备份时间：{formatDate(restorePreview.createdAt)} · 音频 {restorePreview.audioCount} 个
+                    {restorePreview.audioMissingLocally > 0 && ` · 本地缺失 ${restorePreview.audioMissingLocally} 个`}
+                  </div>
+                  <button onClick={() => requestRestore()} className="btn btn-sm btn-primary">恢复此备份</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {notice && (
           <div className="mb-4 rounded-xl border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 text-sm text-[var(--text-primary)] flex items-center gap-2 animate-fade-in">
             <span className="text-[var(--accent)] text-lg">ℹ</span>
@@ -1115,11 +1046,35 @@ export function LibraryView() {
             onChapterUpdated={() => void loadChapterWithDrafts(chapterDetail.id)}
           />
         ) : !detail ? (
-          <div className="flex h-full items-center justify-center text-center text-[var(--text-secondary)]">
-            <div className="max-w-sm">
-              <div className="text-5xl mb-4">🎙️</div>
-              <p className="text-lg font-medium text-[var(--text-primary)]">选择一条记忆，或开始录制新的口述</p>
-              <p className="mt-2 text-sm leading-relaxed">原始音频和原始转写会被永久保留。<br/>后续编辑都会创建新版本，不会覆盖原始素材。</p>
+          <div className="mx-auto w-full max-w-2xl">
+            {/* L2.5：未选中记忆时展示当前项目详情——右侧空间不再只有一句提示 */}
+            <div className="card p-6 space-y-5">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">项目详情</div>
+                <h2 className="mt-1 text-xl font-bold">{currentProject?.name ?? "未选择项目"}</h2>
+                {currentProject && (
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    创建于 {formatDate(currentProject.createdAt)} · 最近更新 {formatDate(currentProject.updatedAt)}
+                  </p>
+                )}
+              </div>
+              {projectId ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <ProjectStat label="记忆" value={memories.length} />
+                  <ProjectStat label="章节" value={chapters.length} />
+                  <ProjectStat label="已转写" value={tasks.filter((task) => task.status === "success").length} />
+                  <ProjectStat label="待转写" value={tasks.filter((task) => task.status !== "success").length} />
+                  <ProjectStat label="人物" value={peopleList.length} />
+                  <ProjectStat label="标签" value={tagsList.length} />
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--text-secondary)]">在左侧选择或新建一个资料库项目，即可开始。</p>
+              )}
+              <div className="border-t border-[var(--border)] pt-4 text-xs leading-relaxed text-[var(--text-secondary)]">
+                在左侧选择一条记忆即可查看与编辑；或点左下角「录制口述」开始新的口述。
+                <br />
+                原始音频和原始转写会被永久保留，后续编辑都会创建新版本，不会覆盖原始素材。
+              </div>
             </div>
           </div>
         ) : (
@@ -1143,6 +1098,7 @@ export function LibraryView() {
             transcribing={transcribing}
           />
         )}
+              </div>
       </main>
     </div>
   );
@@ -1909,4 +1865,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <span className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">{label}</span>
     {children}
   </label>;
+}
+
+/** L2.5：项目详情卡的统计格。 */
+function ProjectStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2.5">
+      <div className="text-lg font-bold text-[var(--text-primary)]">{value}</div>
+      <div className="text-xs text-[var(--text-secondary)]">{label}</div>
+    </div>
+  );
 }
