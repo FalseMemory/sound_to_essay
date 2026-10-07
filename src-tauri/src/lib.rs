@@ -17,7 +17,7 @@ use recorder::Recorder;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use base64::Engine;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -154,12 +154,59 @@ async fn transcribe_audio(
 #[tauri::command]
 fn register_recording(
     state: State<'_, AppState>,
-    input: RegisterRecordingInput,
+    mut input: RegisterRecordingInput,
 ) -> Result<RegisteredRecording, String> {
-    let path = PathBuf::from(&input.audio_path);
+    let old_path = PathBuf::from(&input.audio_path);
+    // 时间命名：登记前把 WAV 重命名为人类可读的「录音-YYYYMMDD-HHMMSS.wav」。
+    // 只改最终文件名——PCM 分片 / 元数据 / 恢复与孤儿扫描仍沿用 UUID 体系；
+    // acknowledge_recording 用旧路径（UUID stem）清理残留。
+    let new_path = rename_recording_to_timestamp(&old_path);
+    input.audio_path = new_path.to_string_lossy().to_string();
     let registered = state.library.register_recording(input)?;
-    recorder::acknowledge_recording(&path);
+    recorder::acknowledge_recording(&old_path);
     Ok(registered)
+}
+
+/// 将录音文件重命名为人类可读的时间戳名称（录音-YYYYMMDD-HHMMSS.wav）。
+/// 命名取自文件修改时间（≈ 录音停止时刻）；同名冲突追加 -2、-3……
+/// 重命名失败（占用/权限等）时返回原路径，不阻断登记流程。
+fn rename_recording_to_timestamp(path: &Path) -> PathBuf {
+    let ext = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("wav")
+        .to_string();
+    let stem = std::fs::metadata(path)
+        .ok()
+        .and_then(|meta| meta.modified().ok())
+        .map(|mtime| {
+            let local: chrono::DateTime<chrono::Local> = mtime.into();
+            format!("录音-{}", local.format("%Y%m%d-%H%M%S"))
+        });
+    match stem {
+        Some(stem) => rename_with_stem(path, &stem, &ext),
+        None => path.to_path_buf(),
+    }
+}
+
+/// 以给定 stem 重命名文件，目标已存在时追加 -2、-3……序号避让。
+fn rename_with_stem(path: &Path, stem: &str, ext: &str) -> PathBuf {
+    let Some(dir) = path.parent() else {
+        return path.to_path_buf();
+    };
+    let mut target = dir.join(format!("{stem}.{ext}"));
+    let mut suffix = 2;
+    while target.exists() {
+        target = dir.join(format!("{stem}-{suffix}.{ext}"));
+        suffix += 1;
+    }
+    match std::fs::rename(path, &target) {
+        Ok(()) => target,
+        Err(error) => {
+            log::warn!("录音文件重命名失败，保留原名 {:?}: {}", path, error);
+            path.to_path_buf()
+        }
+    }
 }
 
 #[tauri::command]
@@ -1376,3 +1423,48 @@ pub fn run() {
 
 
 
+
+#[cfg(test)]
+mod recording_naming_tests {
+    use super::*;
+
+    #[test]
+    fn rename_uses_stem_and_keeps_content() {
+        let dir = std::env::temp_dir().join(format!("rec-name-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("39dd939c-810a-4f7a-8840-c26fcf8d83db.wav");
+        std::fs::write(&src, b"fake-wav-content").unwrap();
+
+        let target = rename_with_stem(&src, "录音-20261007-120543", "wav");
+
+        assert!(target
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .ends_with("录音-20261007-120543.wav"));
+        assert!(target.exists());
+        assert_eq!(std::fs::read(&target).unwrap(), b"fake-wav-content");
+        assert!(!src.exists(), "原 UUID 文件应已不存在");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn rename_avoids_conflict_with_suffix() {
+        let dir = std::env::temp_dir().join(format!("rec-name-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("uuid-source.wav");
+        std::fs::write(&src, b"new").unwrap();
+        let occupied = dir.join("录音-20261007-120543.wav");
+        std::fs::write(&occupied, b"old").unwrap();
+
+        let target = rename_with_stem(&src, "录音-20261007-120543", "wav");
+
+        assert!(target
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .ends_with("录音-20261007-120543-2.wav"));
+        assert_eq!(std::fs::read(&occupied).unwrap(), b"old", "已有文件不得被覆盖");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}
